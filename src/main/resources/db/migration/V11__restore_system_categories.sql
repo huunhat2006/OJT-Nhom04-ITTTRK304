@@ -1,0 +1,40 @@
+-- Tác giả: Trần Hữu Nhật (Backend & DevOps Lead)
+-- ============================================================
+-- V11: Restore canonical system categories
+-- The legacy database/init.sql used explicit category IDs with a
+-- name-only upsert, which desynchronised name / name_vi / type for
+-- IDs 1..20 (e.g. id 7 became name='Utilities', name_vi='Ăn uống').
+-- This migration re-aligns the system categories with V2 seed.
+-- Idempotent: on a clean Flyway database the rows already match.
+-- ============================================================
+
+INSERT INTO categories (id, name, name_vi, type, icon, color, is_system, user_id, display_order) VALUES
+(1,  'Salary',         'Lương',              'INCOME',  'wallet',   '#52c41a', TRUE, NULL, 1),
+(2,  'Business',       'Kinh doanh',         'INCOME',  'shop',     '#1890ff', TRUE, NULL, 2),
+(3,  'Investment',     'Đầu tư',             'INCOME',  'rise',     '#722ed1', TRUE, NULL, 3),
+(4,  'Freelance',      'Làm thêm',           'INCOME',  'laptop',   '#13c2c2', TRUE, NULL, 4),
+(5,  'Gift',           'Quà tặng',           'INCOME',  'gift',     '#eb2f96', TRUE, NULL, 5),
+(6,  'Other Income',   'Thu nhập khác',      'INCOME',  'dollar',   '#faad14', TRUE, NULL, 6),
+(7,  'Food & Dining',  'Ăn uống',            'EXPENSE', 'coffee',   '#fa8c16', TRUE, NULL, 10),
+(8,  'Transportation', 'Di chuyển',          'EXPENSE', 'car',      '#1890ff', TRUE, NULL, 11),
+(9,  'Housing',        'Nhà ở',              'EXPENSE', 'home',     '#52c41a', TRUE, NULL, 12),
+(10, 'Healthcare',     'Y tế',               'EXPENSE', 'heart',    '#ff4d4f', TRUE, NULL, 13),
+(11, 'Education',      'Giáo dục',           'EXPENSE', 'book',     '#722ed1', TRUE, NULL, 14),
+(12, 'Shopping',       'Mua sắm',            'EXPENSE', 'shopping', '#eb2f96', TRUE, NULL, 15),
+(13, 'Entertainment',  'Giải trí',           'EXPENSE', 'smile',    '#faad14', TRUE, NULL, 16),
+(14, 'Utilities',      'Tiện ích',           'EXPENSE', 'thunder',  '#13c2c2', TRUE, NULL, 17),
+(15, 'Communication',  'Liên lạc',           'EXPENSE', 'phone',    '#2f54eb', TRUE, NULL, 18),
+(16, 'Personal Care',  'Chăm sóc cá nhân',   'EXPENSE', 'user',     '#ff7a45', TRUE, NULL, 19),
+(17, 'Insurance',      'Bảo hiểm',           'EXPENSE', 'safety',   '#36cfc9', TRUE, NULL, 20),
+(18, 'Investment',     'Đầu tư',             'EXPENSE', 'fund',     '#9254de', TRUE, NULL, 21),
+(19, 'Savings',        'Tiết kiệm',          'EXPENSE', 'bank',     '#40a9ff', TRUE, NULL, 22),
+(20, 'Other Expense',  'Chi phí khác',       'EXPENSE', 'ellipsis', '#8c8c8c', TRUE, NULL, 23)
+ON DUPLICATE KEY UPDATE
+    name          = VALUES(name),
+    name_vi       = VALUES(name_vi),
+    type          = VALUES(type),
+    icon          = VALUES(icon),
+    color         = VALUES(color),
+    is_system     = TRUE,
+    user_id       = NULL,
+    display_order = VALUES(display_order);
