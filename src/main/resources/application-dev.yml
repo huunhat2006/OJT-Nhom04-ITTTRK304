@@ -1,0 +1,21 @@
+# Tác giả: Trần Hữu Nhật (Backend & DevOps Lead)
+# ============================================================
+# application-dev.yml — Local Development Profile
+# Activated via: SPRING_PROFILES_ACTIVE=dev
+#
+# Override credentials via environment variables or IDE run config.
+# DO NOT commit real passwords here.
+# ============================================================
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/bton_db?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:1234}   # override with your local MySQL password
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.example.bton: DEBUG
+    org.springframework.security: DEBUG
