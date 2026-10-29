@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User } from '../types';
+import { useSpaceStore } from './spaceStore';
 
 interface AuthState {
   user: User | null;
@@ -25,8 +26,10 @@ export const useAuthStore = create<AuthState>()(
         set({ user, token, refreshToken: refreshToken ?? null, isAuthenticated: true }),
       setTokens: (token, refreshToken) =>
         set({ token, refreshToken }),
-      logout: () =>
-        set({ user: null, token: null, refreshToken: null, isAuthenticated: false }),
+      logout: () => {
+        useSpaceStore.getState().reset();
+        set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
+      },
       updateUser: (user) =>
         set({ user }),
     }),

@@ -4,19 +4,16 @@ package com.example.bton.service.impl;
 import com.example.bton.dto.request.WalletRequest;
 import com.example.bton.dto.request.WalletTransferRequest;
 import com.example.bton.dto.response.WalletResponse;
-import com.example.bton.entity.Category;
 import com.example.bton.entity.FinancialSpace;
 import com.example.bton.entity.Transaction;
 import com.example.bton.entity.User;
 import com.example.bton.entity.Wallet;
-import com.example.bton.enums.CategoryType;
 import com.example.bton.enums.SpaceType;
 import com.example.bton.enums.TransactionType;
 import com.example.bton.enums.WalletType;
 import com.example.bton.exception.AccessDeniedException;
 import com.example.bton.exception.BadRequestException;
 import com.example.bton.exception.ResourceNotFoundException;
-import com.example.bton.repository.CategoryRepository;
 import com.example.bton.repository.FinancialSpaceRepository;
 import com.example.bton.repository.TransactionRepository;
 import com.example.bton.repository.UserRepository;
@@ -39,7 +36,6 @@ public class WalletServiceImpl {
     private final FinancialSpaceRepository spaceRepository;
     private final FinancialSpaceServiceImpl spaceService;
     private final TransactionRepository transactionRepository;
-    private final CategoryRepository categoryRepository;
 
     @Transactional(readOnly = true)
     public List<WalletResponse> getWallets(Long userId, Long spaceId) {
@@ -84,36 +80,12 @@ public class WalletServiceImpl {
                 .walletType(request.getWalletType() != null ? request.getWalletType() : WalletType.CASH)
                 .currency(request.getCurrency() != null ? request.getCurrency() : "VND")
                 .balance(request.getInitialBalance() != null ? request.getInitialBalance() : BigDecimal.ZERO)
+                .openingBalance(request.getInitialBalance() != null ? request.getInitialBalance() : BigDecimal.ZERO)
                 .isShared(request.getIsShared() != null ? request.getIsShared() : false)
                 .isActive(true)
                 .build();
 
         wallet = walletRepository.save(wallet);
-
-        // UC03: if initial balance > 0, record an opening-balance INCOME transaction
-        if (wallet.getBalance().compareTo(BigDecimal.ZERO) > 0) {
-            FinancialSpace targetSpace = space != null
-                    ? space
-                    : spaceRepository.findFirstByOwnerIdAndTypeAndIsActiveTrue(userId, SpaceType.PERSONAL)
-                            .orElse(null);
-            if (targetSpace != null) {
-                Category openingCategory = categoryRepository
-                        .findFirstByNameAndTypeAndIsSystemTrueAndIsActiveTrue("Other Income", CategoryType.INCOME)
-                        .orElse(null);
-                Transaction openingTx = Transaction.builder()
-                        .space(targetSpace)
-                        .user(user)
-                        .category(openingCategory)
-                        .type(TransactionType.INCOME)
-                        .amount(wallet.getBalance())
-                        .description("Nạp số dư ban đầu cho ví '" + wallet.getName() + "'")
-                        .transactionDate(LocalDate.now())
-                        .wallet(wallet)
-                        .isDeleted(false)
-                        .build();
-                transactionRepository.save(openingTx);
-            }
-        }
 
         return mapToResponse(wallet);
     }

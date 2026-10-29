@@ -39,7 +39,7 @@ public class Transaction {
     private Category category;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private TransactionType type;
 
     @Column(nullable = false, precision = 15, scale = 2)

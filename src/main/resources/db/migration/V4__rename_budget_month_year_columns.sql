@@ -1,10 +1,3 @@
--- Tác giả: La Thế Phong (Database & Data Lead)
--- ============================================================
--- V4: Rename budgets.month -> budget_month, year -> budget_year
--- Reason: 'month' and 'year' are reserved keywords in H2 (test DB)
---         Renaming avoids DDL errors in test profile and keeps
---         MySQL compatibility.
--- ============================================================
 
 ALTER TABLE budgets
     RENAME COLUMN month TO budget_month,

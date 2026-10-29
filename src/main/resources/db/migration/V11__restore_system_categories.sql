@@ -1,12 +1,3 @@
--- Tác giả: Trần Hữu Nhật (Backend & DevOps Lead)
--- ============================================================
--- V11: Restore canonical system categories
--- The legacy database/init.sql used explicit category IDs with a
--- name-only upsert, which desynchronised name / name_vi / type for
--- IDs 1..20 (e.g. id 7 became name='Utilities', name_vi='Ăn uống').
--- This migration re-aligns the system categories with V2 seed.
--- Idempotent: on a clean Flyway database the rows already match.
--- ============================================================
 
 INSERT INTO categories (id, name, name_vi, type, icon, color, is_system, user_id, display_order) VALUES
 (1,  'Salary',         'Lương',              'INCOME',  'wallet',   '#52c41a', TRUE, NULL, 1),

@@ -1,15 +1,6 @@
--- Tác giả: BTON Team
--- ============================================================
--- V9: Seed demo data for the ADMIN account
--- Reason: Admin had no financial space, so every user-facing page
---         (Tổng quan, Giao dịch, Ví tiền, Ngân sách, Mục tiêu,
---          Gia đình, Báo cáo) was empty after login.
--- This migration is idempotent: it only inserts data when missing.
--- ============================================================
 
 SET @admin_id = (SELECT id FROM users WHERE username = 'admin' LIMIT 1);
 
--- ── 1. Personal space for admin ──────────────────────────────
 INSERT INTO financial_spaces (name, description, type, currency, owner_id, is_active)
 SELECT 'Tài chính cá nhân - Admin',
        'Không gian tài chính cá nhân của quản trị viên',
@@ -27,7 +18,6 @@ SET @admin_personal = (
     ORDER BY id LIMIT 1
 );
 
--- ── 2. Family space for admin ────────────────────────────────
 INSERT INTO financial_spaces (name, description, type, currency, owner_id, invite_code, is_active)
 SELECT 'Gia đình Admin',
        'Không gian tài chính gia đình của quản trị viên',
@@ -45,7 +35,6 @@ SET @admin_family = (
     ORDER BY id LIMIT 1
 );
 
--- ── 3. Family members ───────────────────────────────────────
 INSERT INTO family_members (space_id, user_id, role, is_active)
 SELECT @admin_family, @admin_id, 'OWNER', TRUE
 FROM DUAL
@@ -55,7 +44,6 @@ WHERE @admin_family IS NOT NULL
       WHERE space_id = @admin_family AND user_id = @admin_id
   );
 
--- ── 4. Wallets ──────────────────────────────────────────────
 INSERT INTO wallets (user_id, space_id, name, wallet_type, currency, balance, is_shared, is_active)
 SELECT @admin_id, @admin_personal, 'Ví tiền mặt - Admin', 'CASH', 'VND', 5000000.00, FALSE, TRUE
 FROM DUAL

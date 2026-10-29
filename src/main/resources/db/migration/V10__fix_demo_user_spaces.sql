@@ -1,14 +1,3 @@
--- Tác giả: BTON Team
--- ============================================================
--- V10: Fix demo user spaces / family memberships
--- Problem: V3 + database/init.sql were applied in the wrong order.
---   * Space id 2 (V3 PERSONAL space of user id 3) was renamed to
---     "Gia đình Hữu Nhật" by init.sql's ON DUPLICATE KEY UPDATE,
---     while keeping type=PERSONAL and owner=hoangphuc.
---   * init.sql added thephong/manhthang as members of that PERSONAL
---     space, so they saw someone else's family name.
--- This migration is idempotent.
--- ============================================================
 
 SET @hoangphuc_id = (SELECT id FROM users WHERE username = 'hoangphuc' LIMIT 1);
 SET @thephong_id  = (SELECT id FROM users WHERE username = 'thephong'  LIMIT 1);
