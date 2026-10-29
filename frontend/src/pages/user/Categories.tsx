@@ -1,6 +1,8 @@
+import { getErrorMessage } from '../../lib/apiError';
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Lock } from 'lucide-react';
+import { CategoryIcon } from '../../lib/categoryIcons';
 import api from '../../lib/axios';
 import { Category } from '../../types';
 import Modal from '../../components/Modal';
@@ -80,8 +82,8 @@ export default function Categories() {
       }
       setShowForm(false);
       fetchCategories();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Không thể lưu danh mục');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Không thể lưu danh mục'));
     } finally {
       setSaving(false);
     }
@@ -97,8 +99,8 @@ export default function Categories() {
       await api.delete(`/categories/${c.id}`);
       toast.success('Đã xóa danh mục');
       fetchCategories();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Không thể xóa danh mục');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Không thể xóa danh mục'));
     }
   };
 
@@ -110,10 +112,10 @@ export default function Categories() {
       {list.map((c) => (
         <div key={c.id} className="border border-gray-200 rounded-xl p-4 flex items-center gap-3">
           <div
-            className="w-11 h-11 rounded-lg flex items-center justify-center text-white text-lg shrink-0"
+            className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0"
             style={{ backgroundColor: c.color || '#5B4FFF' }}
           >
-            {c.icon || '📁'}
+            <CategoryIcon icon={c.icon} className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-medium text-gray-900 truncate">{c.nameVi || c.name}</div>

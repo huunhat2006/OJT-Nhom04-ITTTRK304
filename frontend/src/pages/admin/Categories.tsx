@@ -1,6 +1,7 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useEffect, useState } from 'react';
 import { Plus, ToggleLeft, ToggleRight } from 'lucide-react';
+import { CategoryIcon } from '../../lib/categoryIcons';
 import api from '../../lib/axios';
 import { Category } from '../../types';
 import toast from 'react-hot-toast';
@@ -71,8 +72,8 @@ export default function Categories() {
                     className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-                        <span>{category.icon || '💰'}</span>
+                      <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center text-success">
+                        <CategoryIcon icon={category.icon} className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="font-medium text-gray-900">{category.name}</div>
@@ -121,8 +122,8 @@ export default function Categories() {
                     className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-danger/10 flex items-center justify-center">
-                        <span>{category.icon || '💸'}</span>
+                      <div className="w-10 h-10 rounded-lg bg-danger/10 flex items-center justify-center text-danger">
+                        <CategoryIcon icon={category.icon} className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="font-medium text-gray-900">{category.name}</div>

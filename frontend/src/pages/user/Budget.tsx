@@ -1,6 +1,8 @@
+import { getErrorMessage } from '../../lib/apiError';
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useEffect, useState } from 'react';
 import { Plus, TrendingUp, Pencil, Trash2 } from 'lucide-react';
+import { CategoryIcon } from '../../lib/categoryIcons';
 import { useSpaceStore } from '../../store/spaceStore';
 import api from '../../lib/axios';
 import { Budget as BudgetType, Category } from '../../types';
@@ -106,8 +108,8 @@ export default function Budget() {
       }
       setShowForm(false);
       fetchBudgets();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Không thể lưu ngân sách');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Không thể lưu ngân sách'));
     } finally {
       setSaving(false);
     }
@@ -119,8 +121,8 @@ export default function Budget() {
       await api.delete(`/budgets/${id}`);
       toast.success('Đã xóa ngân sách');
       fetchBudgets();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Không thể xóa ngân sách');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Không thể xóa ngân sách'));
     }
   };
 
@@ -239,8 +241,11 @@ export default function Budget() {
               <div key={budget.id} className="card">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                      <span className="text-xl">{budget.category?.icon || '💰'}</span>
+                    <div
+                      className="w-12 h-12 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: budget.category?.color || '#5B4FFF' }}
+                    >
+                      <CategoryIcon icon={budget.category?.icon} className="w-6 h-6 text-white" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900">
