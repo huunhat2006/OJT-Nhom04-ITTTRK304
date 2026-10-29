@@ -51,6 +51,10 @@ public class Wallet {
     @Builder.Default
     private BigDecimal balance = BigDecimal.ZERO;
 
+    @Column(name = "opening_balance", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal openingBalance = BigDecimal.ZERO;
+
     @Column(name = "is_shared", nullable = false)
     @Builder.Default
     private Boolean isShared = false;

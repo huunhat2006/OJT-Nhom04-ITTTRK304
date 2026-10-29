@@ -1,8 +1,3 @@
--- Tác giả: La Thế Phong (Database & Data Lead)
--- ============================================================
--- V1: Initialize Database Schema
--- Personal Finance Management System (BTON)
--- ============================================================
 
 -- Users table
 CREATE TABLE users (

@@ -1,9 +1,4 @@
--- Tác giả: La Thế Phong (Database & Data Lead)
--- ============================================================
--- V7: Fix invalid demo password hashes
--- The hashes seeded by V3 (and database/init.sql) did not match the
--- documented passwords. Only rows that still contain the old seeded
--- hash are updated, so real password changes are never overwritten.
+
 --
 -- admin                         -> Admin@1234
 -- nguyen.van.a / tran.thi.b /

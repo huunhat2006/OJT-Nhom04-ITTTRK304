@@ -1,13 +1,8 @@
--- Tác giả: La Thế Phong (Database & Data Lead)
--- ============================================================
--- V5: UC04 TRANSFER type, UC05 receipt image, soft delete
--- Personal Finance Management System (BTON)
--- ============================================================
 
 -- Allow TRANSFER transaction type (UC04)
 ALTER TABLE transactions MODIFY COLUMN type VARCHAR(20) NOT NULL;
 
--- Category is optional for internal wallet transfers (UC04)
+
 ALTER TABLE transactions MODIFY COLUMN category_id BIGINT NULL;
 
 -- Receipt/invoice image URL attached to a transaction (UC05)

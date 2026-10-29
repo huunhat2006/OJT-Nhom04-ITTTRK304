@@ -1,6 +1,4 @@
--- Tác giả: La Thế Phong (Database & Data Lead)
--- ============================================================
--- V3: Seed Demo Users and Sample Data
+
 -- Admin password: Admin@1234  |  User password: User@1234
 -- ============================================================
 

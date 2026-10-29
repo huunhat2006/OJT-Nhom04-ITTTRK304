@@ -1,8 +1,4 @@
--- Tác giả: La Thế Phong (Database & Data Lead)
--- ============================================================
--- V2: Seed System Categories
--- Personal Finance Management System (BTON)
--- ============================================================
+
 
 -- Income categories (system-defined)
 INSERT INTO categories (name, name_vi, type, icon, color, is_system, user_id, display_order) VALUES

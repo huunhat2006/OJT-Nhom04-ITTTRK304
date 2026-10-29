@@ -29,13 +29,14 @@ export default function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const { currentSpace, spaces, setSpaces, setCurrentSpace } = useSpaceStore();
+  const { currentSpace, spaces, setSpaces, setCurrentSpace, reset } = useSpaceStore();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSpaceMenu, setShowSpaceMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [spacesReady, setSpacesReady] = useState(false);
 
   // Load accessible spaces from API and auto-select the first one
   useEffect(() => {
@@ -51,9 +52,13 @@ export default function DashboardLayout() {
           setCurrentSpace(data[0]);
         } else if (stillValid) {
           setCurrentSpace(stillValid);
+        } else if (data.length === 0) {
+          reset();
         }
       } catch {
         // stay silent — pages show "select a space" hint
+      } finally {
+        setSpacesReady(true);
       }
     };
     loadSpaces();
@@ -372,7 +377,13 @@ export default function DashboardLayout() {
           setShowSpaceMenu(false);
           setShowUserMenu(false);
         }}>
-          <Outlet />
+          {spacesReady || location.pathname.startsWith('/admin') ? (
+            <Outlet />
+          ) : (
+            <div className="flex items-center justify-center h-96">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+          )}
         </main>
       </div>
     </div>

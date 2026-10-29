@@ -28,7 +28,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       # NOTE: schema + seed data are owned by Flyway (src/main/resources/db/migration).
-      # Do NOT mount database/init.sql here — running two seed sources caused
+      # Do NOT mount a MySQL init script here — running two seed sources caused
       # duplicated/conflicting demo data. The backend creates the schema on startup.
       - ./scripts/backup:/backup          # mount backup directory
     networks:
