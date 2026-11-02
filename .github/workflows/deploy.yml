@@ -1,0 +1,159 @@
+# Tác giả: Trần Hữu Nhật (Backend & DevOps Lead)
+# ============================================================
+# CI/CD Pipeline — BTON Personal Finance Management System
+# Tự động hóa Build Docker Images & Deploy Production trên VPS
+# ============================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main # Kích hoạt pipeline khi có code đẩy lên nhánh main
+
+jobs:
+  # 1. Build & Push Backend song song (có cache GitHub Actions giúp build cực nhanh)
+  build-backend:
+    name: Build & Push Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: runtime
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/bton-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # 2. Build & Push Frontend song song
+  build-frontend:
+    name: Build & Push Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Frontend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: frontend/Dockerfile
+          target: runtime
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/bton-frontend:latest
+          build-args: |
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # 3. Tự động cập nhật file docker-compose.yml và kích hoạt deploy trên VPS
+  deploy-to-vps:
+    name: Deploy to VPS
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Prepare docker-compose.yml
+        run: |
+          echo "COMPOSE_B64=$(base64 -w 0 docker-compose.yml)" >> $GITHUB_ENV
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST || secrets.DEPLOY_HOST }}
+          username: ${{ secrets.VPS_USERNAME || secrets.DEPLOY_USER || 'root' }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          command_timeout: 20m
+          envs: COMPOSE_B64,DOCKER_USERNAME
+          script: |
+            set -e
+            mkdir -p /root/bton_project
+            cd /root/bton_project
+
+            # Cập nhật ngay lập tức file docker-compose.yml từ Git qua SSH (0.1s, không bị nghẽn SCP/SFTP)
+            echo "$COMPOSE_B64" | base64 -d > docker-compose.yml
+
+            # 0. Tự động đồng bộ thời gian chuẩn (NTP) cho VPS để tránh lỗi lệch giờ
+            echo "==> Tự động đồng bộ đồng hồ hệ thống VPS..."
+            timedatectl set-timezone Asia/Ho_Chi_Minh 2>/dev/null || true
+            timedatectl set-ntp true 2>/dev/null || true
+            if ! command -v chronyd >/dev/null 2>&1; then
+              apt-get update -qq && apt-get install -y -qq chrony 2>/dev/null || true
+            fi
+            systemctl restart chrony 2>/dev/null || true
+
+            # Đảm bảo file .env tồn tại nếu chưa có
+            if [ ! -f .env ]; then
+              echo "==> Tạo file .env mặc định từ .env.example..."
+              if [ -f .env.example ]; then
+                cp .env.example .env
+              else
+                touch .env
+              fi
+            fi
+
+            # 1. Đảm bảo hạ tầng Database (MySQL 8) chạy trước (tự động cập nhật cấu hình nếu có)
+            echo "==> Khởi động hạ tầng cơ sở dữ liệu (MySQL 8)..."
+            docker compose up -d mysql
+
+            # 2. Kéo image tuần tự với cơ chế retry tự động
+            echo "==> Kéo image mới nhất từ Docker Hub..."
+            pull_with_retry() {
+              local img=$1
+              for i in 1 2 3; do
+                echo "Đang kéo $img (lần thử $i)..."
+                if docker pull "$img"; then
+                  echo "Kéo $img thành công!"
+                  return 0
+                else
+                  echo "Lần $i thất bại cho $img, thử lại sau 3 giây..."
+                  sleep 3
+                fi
+              done
+              echo "Không thể kéo $img sau 3 lần thử!"
+              return 1
+            }
+
+            DOCKER_USER="${DOCKER_USERNAME:-huunhat2006}"
+            pull_with_retry "${DOCKER_USER}/bton-backend:latest"
+            pull_with_retry "${DOCKER_USER}/bton-frontend:latest"
+
+            # 3. Tái khởi động Backend & Frontend với container và code mới nhất
+            echo "==> Cập nhật và chạy lại Backend & Frontend..."
+            docker compose up -d --no-deps --force-recreate backend frontend
+
+            # 4. Dọn dẹp các images rác/cũ để giải phóng dung lượng ổ cứng VPS
+            echo "==> Dọn dẹp images cũ..."
+            docker image prune -f
+
+            echo "==> Triển khai BTON Production thành công!"
+            docker compose ps
+
