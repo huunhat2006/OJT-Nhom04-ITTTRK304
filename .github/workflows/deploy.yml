@@ -144,24 +144,54 @@ jobs:
             set +a
 
             # Kiểm tra xem MySQL có kết nối được không
-            echo "==> Kiểm tra kết nối MySQL..."
+            echo "==> Kiểm tra kết nối MySQL root..."
             MYSQL_READY=false
             for i in $(seq 1 15); do
               if docker compose exec -T mysql mysqladmin ping -h localhost -u root -p"${MYSQL_ROOT_PASSWORD}" 2>/dev/null; then
                 MYSQL_READY=true
-                echo "==> MySQL đã sẵn sàng!"
+                echo "==> MySQL root đã sẵn sàng!"
                 break
               fi
               sleep 2
             done
 
-            # Nếu MySQL volume cũ không khớp mật khẩu trong .env (do lần khởi tạo đầu bị rỗng), reset volume mysql_data
-            if [ "$MYSQL_READY" = "false" ]; then
-              echo "==> MySQL volume cũ chưa đồng bộ thông tin xác thực. Đang dọn sạch và khởi tạo lại MySQL..."
+            # Cấp quyền và đồng bộ mật khẩu cho user ứng dụng (MYSQL_USER)
+            if [ "$MYSQL_READY" = "true" ]; then
+              echo "==> Đồng bộ quyền truy cập cho user '${MYSQL_USER:-bton}'..."
+              docker compose exec -T mysql mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "
+                CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE:-bton_db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+                CREATE USER IF NOT EXISTS '${MYSQL_USER:-bton}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
+                ALTER USER '${MYSQL_USER:-bton}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
+                GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE:-bton_db}\`.* TO '${MYSQL_USER:-bton}'@'%';
+                FLUSH PRIVILEGES;
+              " 2>/dev/null || true
+            fi
+
+            # Kiểm tra xem user ứng dụng bton có kết nối được không
+            echo "==> Kiểm tra kết nối từ user ứng dụng '${MYSQL_USER:-bton}'..."
+            USER_READY=false
+            for i in $(seq 1 5); do
+              if docker compose exec -T mysql mysql -u "${MYSQL_USER:-bton}" -p"${MYSQL_PASSWORD}" -e "SELECT 1;" 2>/dev/null; then
+                USER_READY=true
+                echo "==> User '${MYSQL_USER:-bton}' kết nối CSDL thành công!"
+                break
+              fi
+              sleep 2
+            done
+
+            # Nếu cả root hoặc user ứng dụng không kết nối được, reset volume mysql_data để MySQL khởi tạo lại với thông tin trong .env
+            if [ "$USER_READY" = "false" ]; then
+              echo "==> Thông tin xác thực CSDL chưa đồng bộ. Đang dọn dẹp volume cũ và khởi tạo lại MySQL..."
               docker compose down -v
               docker compose up -d mysql
-              echo "==> Chờ MySQL 8 hoàn tất khởi tạo..."
-              sleep 15
+              echo "==> Chờ MySQL 8 hoàn tất khởi tạo ban đầu..."
+              for i in $(seq 1 20); do
+                if docker compose exec -T mysql mysql -u "${MYSQL_USER:-bton}" -p"${MYSQL_PASSWORD}" -e "SELECT 1;" 2>/dev/null; then
+                  echo "==> MySQL đã khởi tạo thành công!"
+                  break
+                fi
+                sleep 2
+              done
             fi
 
             # Kéo image tuần tự với cơ chế retry tự động
