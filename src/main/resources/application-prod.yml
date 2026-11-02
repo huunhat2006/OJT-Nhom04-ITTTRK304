@@ -37,7 +37,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    baseline-on-migrate: false    # only true on first-ever deploy
+    baseline-on-migrate: true    # only true on first-ever deploy
     validate-on-migrate: true
     out-of-order: false
 

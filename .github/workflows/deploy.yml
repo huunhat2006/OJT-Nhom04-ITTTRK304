@@ -104,7 +104,7 @@ jobs:
             mkdir -p /root/bton_project
             cd /root/bton_project
 
-            # Cập nhật ngay lập tức file docker-compose.yml từ Git qua SSH (0.1s, không bị nghẽn SCP/SFTP)
+            # Cập nhật ngay lập tức file docker-compose.yml từ Git qua SSH (0.1s)
             echo "$COMPOSE_B64" | base64 -d > docker-compose.yml
 
             # Tự động đồng bộ thời gian chuẩn cho VPS
@@ -121,15 +121,41 @@ jobs:
               sed -i "s/replace_with_a_long_random_secret_at_least_256_bits_long/$(openssl rand -hex 32)/g" .env
             fi
 
-            # Đăng nhập Docker Hub trên VPS để kéo được image private và tránh giới hạn rate limit
+            # Đăng nhập Docker Hub trên VPS để kéo được image private và tránh rate-limit
             if [ -n "$DOCKER_USERNAME" ] && [ -n "$DOCKER_PASSWORD" ]; then
               echo "==> Đăng nhập Docker Hub trên VPS với tài khoản $DOCKER_USERNAME..."
               echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
             fi
 
-            # Khởi động hạ tầng Database (MySQL 8) trước
+            # Khởi động hạ tầng cơ sở dữ liệu (MySQL 8)
             echo "==> Khởi động hạ tầng cơ sở dữ liệu (MySQL 8)..."
             docker compose up -d mysql
+
+            # Đọc các biến từ .env để kiểm tra kết nối MySQL
+            set -a
+            . ./.env
+            set +a
+
+            # Kiểm tra xem MySQL có kết nối được không
+            echo "==> Kiểm tra kết nối MySQL..."
+            MYSQL_READY=false
+            for i in $(seq 1 15); do
+              if docker compose exec -T mysql mysqladmin ping -h localhost -u root -p"${MYSQL_ROOT_PASSWORD}" 2>/dev/null; then
+                MYSQL_READY=true
+                echo "==> MySQL đã sẵn sàng!"
+                break
+              fi
+              sleep 2
+            done
+
+            # Nếu MySQL volume cũ không khớp mật khẩu trong .env (do lần khởi tạo đầu bị rỗng), reset volume mysql_data
+            if [ "$MYSQL_READY" = "false" ]; then
+              echo "==> MySQL volume cũ chưa đồng bộ thông tin xác thực. Đang dọn sạch và khởi tạo lại MySQL..."
+              docker compose down -v
+              docker compose up -d mysql
+              echo "==> Chờ MySQL 8 hoàn tất khởi tạo..."
+              sleep 15
+            fi
 
             # Kéo image tuần tự với cơ chế retry tự động
             echo "==> Kéo image mới nhất từ Docker Hub..."
@@ -154,17 +180,36 @@ jobs:
             pull_with_retry "${DOCKER_USER}/bton-backend:latest"
             pull_with_retry "${DOCKER_USER}/bton-frontend:latest"
 
-            # Chờ MySQL ổn định
-            echo "==> Chờ MySQL sẵn sàng..."
-            sleep 10
+            # Khởi động Backend trước
+            echo "==> Cập nhật và khởi động Backend..."
+            docker compose up -d --no-deps --force-recreate backend
 
-            # Tái khởi động Backend & Frontend với container và code mới nhất
-            echo "==> Cập nhật và chạy lại Backend & Frontend..."
-            docker compose up -d --no-deps --force-recreate backend frontend
+            # Chờ Backend khởi động và kiểm tra health
+            echo "==> Chờ Backend khởi động (kiểm tra Actuator /health)..."
+            BACKEND_OK=false
+            for i in $(seq 1 25); do
+              HEALTH=$(docker inspect --format='{{json .State.Health.Status}}' bton-backend 2>/dev/null || echo '"unknown"')
+              if [ "$HEALTH" = '"healthy"' ]; then
+                BACKEND_OK=true
+                echo "==> Backend đã khởi động thành công và HEALTHY!"
+                break
+              fi
+              echo "Trạng thái Backend: $HEALTH (lần kiểm tra $i/25)..."
+              sleep 4
+            done
 
-            # Dọn dẹp các images rác/cũ để giải phóng dung lượng ổ cứng VPS
+            if [ "$BACKEND_OK" = "false" ]; then
+              echo "==> CẢNH BÁO: Backend chưa đạt trạng thái healthy. Hiển thị logs Backend chi tiết:"
+              docker compose logs --tail=100 backend
+            fi
+
+            # Khởi động Frontend
+            echo "==> Cập nhật và khởi động Frontend..."
+            docker compose up -d --no-deps --force-recreate frontend
+
+            # Dọn dẹp images cũ
             echo "==> Dọn dẹp images cũ..."
             docker image prune -f
 
-            echo "==> Triển khai BTON Production thành công!"
+            echo "==> Trạng thái các dịch vụ sau khi triển khai:"
             docker compose ps
