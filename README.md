@@ -96,14 +96,7 @@ Password: Admin@1234
 Role:     ADMIN
 ```
 
-**User demo trên bản cài mới (Flyway seed):**
-```
-Username: nguyen.van.a    | Password: User@1234 | Nguyễn Văn A
-Username: tran.thi.b      | Password: User@1234 | Trần Thị B
-Username: le.van.c        | Password: User@1234 | Lê Văn C
-```
-
-**User của DB cũ (được tạo từ `database/init.sql`):**
+**User demo trên bản cài mới (Flyway seed V12):**
 ```
 Username: huunhat         | Password: Password123!
 Username: hoangphuc       | Password: Password123!
@@ -111,9 +104,9 @@ Username: thephong        | Password: Password123!
 Username: manhthang       | Password: Password123!
 ```
 
-> Lưu ý: nhóm user thứ hai chỉ tồn tại trong database đang chạy của bạn.
-> Nếu chạy `scripts/reset-db.ps1`, DB sẽ được tạo lại bằng Flyway và chỉ còn
-> `admin` + 3 user `nguyen.van.a` / `tran.thi.b` / `le.van.c`.
+> `scripts/reset-db.ps1` tạo lại DB hoàn toàn bằng Flyway, nên chỉ có
+> `admin` + 4 user ở trên (các user `nguyen.van.a` / `tran.thi.b` / `le.van.c`
+> của bản seed cũ đã bị xoá ở V12).
 
 👉 **Chi tiết:** Xem file [QUICK_START.md](QUICK_START.md) và [ACCOUNTS.md](ACCOUNTS.md)
 
@@ -121,10 +114,10 @@ Username: manhthang       | Password: Password123!
 
 ## 🗄️ Database & Migrations
 
-**Flyway là nguồn duy nhất** tạo schema và seed dữ liệu — không dùng
-`database/init.sql` để seed nữa (file này chỉ còn để tham khảo). Trước đây
-việc mount `init.sql` vào MySQL cùng lúc với Flyway đã gây ra dữ liệu demo
-trùng/lệch (sai tên không gian, sai chủ sở hữu).
+**Flyway là nguồn duy nhất** tạo schema và seed dữ liệu — không đặt script
+`.sql` khởi tạo nào khác trong MySQL container. Trước đây việc chạy song song
+một file init thủ công với Flyway đã gây ra dữ liệu demo trùng/lệch (sai tên
+không gian, sai chủ sở hữu), nên file đó đã được xoá khỏi repo.
 
 **Quy tắc làm việc:**
 
@@ -148,7 +141,7 @@ Sau đó khởi động backend:
 ./gradlew bootRun
 ```
 
-Flyway sẽ tự áp dụng `V1 → V11` và seed dữ liệu demo.
+Flyway sẽ tự áp dụng `V1 → V14` và seed dữ liệu demo.
 
 ---
 
@@ -179,7 +172,10 @@ BTON/
 │   │   ├── V4..V8                    # Schema refinements
 │   │   ├── V9__seed_admin_demo_data.sql
 │   │   ├── V10__fix_demo_user_spaces.sql
-│   │   └── V11__restore_system_categories.sql
+│   │   ├── V11__restore_system_categories.sql
+│   │   ├── V12__align_schema_and_complete_demo_data.sql
+│   │   ├── V13__fix_demo_data_and_add_integrity_constraints.sql
+│   │   └── V14__align_schema_with_srs.sql
 │   └── application.yml                 # Application Config
 │
 ├── frontend/                           # Frontend React App

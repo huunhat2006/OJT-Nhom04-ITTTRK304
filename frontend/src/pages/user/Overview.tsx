@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 const COLORS = ['#5B4FFF', '#2DD4BF', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#10B981', '#F97316'];
 
 export default function Overview() {
-  const { currentSpace } = useSpaceStore();
+  const { currentSpace, spaces } = useSpaceStore();
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
 
@@ -21,9 +21,11 @@ export default function Overview() {
   const year = currentDate.getFullYear();
 
   useEffect(() => {
-    if (currentSpace) fetchDashboard();
+    if (currentSpace && spaces.some((s) => s.id === currentSpace.id)) {
+      fetchDashboard();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSpace]);
+  }, [currentSpace, spaces]);
 
   const fetchDashboard = async () => {
     if (!currentSpace) return;
@@ -40,7 +42,7 @@ export default function Overview() {
     }
   };
 
-  if (!currentSpace) {
+  if (!currentSpace || !spaces.some((s) => s.id === currentSpace.id)) {
     return (
       <div className="flex items-center justify-center h-96">
         <p className="text-gray-500">Vui lòng chọn không gian tài chính</p>
