@@ -121,6 +121,13 @@ jobs:
               sed -i "s/replace_with_a_long_random_secret_at_least_256_bits_long/$(openssl rand -hex 32)/g" .env
             fi
 
+            # Đồng bộ cấu hình CORS_ALLOWED_ORIGINS trong .env (hỗ trợ budgivee.online)
+            if grep -q "CORS_ALLOWED_ORIGINS" .env; then
+              sed -i 's|CORS_ALLOWED_ORIGINS=.*|CORS_ALLOWED_ORIGINS=*|g' .env
+            else
+              echo "CORS_ALLOWED_ORIGINS=*" >> .env
+            fi
+
             # Đăng nhập Docker Hub trên VPS để kéo được image private và tránh rate-limit
             if [ -n "$DOCKER_USERNAME" ] && [ -n "$DOCKER_PASSWORD" ]; then
               echo "==> Đăng nhập Docker Hub trên VPS với tài khoản $DOCKER_USERNAME..."
