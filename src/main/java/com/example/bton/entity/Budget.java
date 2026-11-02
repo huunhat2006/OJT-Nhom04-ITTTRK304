@@ -56,4 +56,17 @@ public class Budget {
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Transient
+    public BigDecimal getLimitAmount() {
+        return this.amount;
+    }
+
+    @Transient
+    public String getMonthFormatted() {
+        if (budgetYear != null && budgetMonth != null) {
+            return String.format("%04d-%02d", budgetYear, budgetMonth);
+        }
+        return null;
+    }
 }

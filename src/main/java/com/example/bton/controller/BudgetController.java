@@ -2,7 +2,9 @@
 package com.example.bton.controller;
 
 import com.example.bton.dto.request.BudgetRequest;
+import com.example.bton.dto.response.BudgetOverviewResponse;
 import com.example.bton.dto.response.BudgetResponse;
+import com.example.bton.dto.response.BudgetStatusResponse;
 import com.example.bton.security.UserPrincipal;
 import com.example.bton.service.impl.BudgetServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,28 +17,48 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/budgets")
+@RequestMapping({"/api/v1/budgets", "/api/budgets"})
 @RequiredArgsConstructor
-@Tag(name = "Budgets", description = "Monthly budget management")
+@Tag(name = "Budgets", description = "Monthly budget management and smart alerts")
 @SecurityRequirement(name = "bearerAuth")
 public class BudgetController {
 
     private final BudgetServiceImpl budgetService;
 
     @GetMapping
-    @Operation(summary = "Get budgets for a space and month/year")
+    @Operation(summary = "Get budgets for a space and month/year (supports month=YYYY-MM or month & year)")
     public ResponseEntity<List<BudgetResponse>> getBudgets(
-            @RequestParam Long spaceId,
-            @RequestParam(defaultValue = "0") int month,
+            @RequestParam(required = false) Long spaceId,
+            @RequestParam(required = false) String month,
             @RequestParam(defaultValue = "0") int year,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        if (month == 0) month = LocalDate.now().getMonthValue();
-        if (year == 0) year = LocalDate.now().getYear();
-        return ResponseEntity.ok(budgetService.getBudgets(spaceId, currentUser.getId(), month, year));
+        BudgetServiceImpl.MonthYear my = budgetService.parseMonthYear(month, year);
+        return ResponseEntity.ok(budgetService.getBudgets(spaceId, currentUser.getId(), my.month(), my.year()));
+    }
+
+    @GetMapping("/status")
+    @Operation(summary = "Get budget status breakdown (OK/WARNING/EXCEEDED)")
+    public ResponseEntity<BudgetStatusResponse> getBudgetStatus(
+            @RequestParam(required = false) Long spaceId,
+            @RequestParam(required = false) String month,
+            @RequestParam(defaultValue = "0") int year,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        BudgetServiceImpl.MonthYear my = budgetService.parseMonthYear(month, year);
+        return ResponseEntity.ok(budgetService.getBudgetStatus(spaceId, currentUser.getId(), my.month(), my.year()));
+    }
+
+    @GetMapping("/overview")
+    @Operation(summary = "Get budget overview (total budget, total spent, remaining %)")
+    public ResponseEntity<BudgetOverviewResponse> getBudgetOverview(
+            @RequestParam(required = false) Long spaceId,
+            @RequestParam(required = false) String month,
+            @RequestParam(defaultValue = "0") int year,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        BudgetServiceImpl.MonthYear my = budgetService.parseMonthYear(month, year);
+        return ResponseEntity.ok(budgetService.getBudgetOverview(spaceId, currentUser.getId(), my.month(), my.year()));
     }
 
     @PostMapping
