@@ -47,6 +47,7 @@ services:
 
   # ── Backend (Spring Boot) ───────────────────────────────────
   backend:
+    image: ${DOCKER_USERNAME:-huunhat2006}/bton-backend:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -82,6 +83,7 @@ services:
 
   # ── Frontend (React + Nginx) ────────────────────────────────
   frontend:
+    image: ${DOCKER_USERNAME:-huunhat2006}/bton-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
