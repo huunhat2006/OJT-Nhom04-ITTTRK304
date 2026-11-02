@@ -107,7 +107,7 @@ public class TransactionServiceImpl {
         }
         // For TRANSFER, balance is handled by WalletService
 
-        transaction = transactionRepository.save(transaction);
+        transaction = transactionRepository.saveAndFlush(transaction);
         walletRepository.save(wallet);
 
         // Check budget thresholds for expenses (based on the transaction's own date)

@@ -55,7 +55,7 @@ public class ReportServiceImpl {
         // Budgets with warnings
         var budgets = budgetService.getBudgets(spaceId, userId, month, year);
         var warnings = budgets.stream()
-                .filter(b -> !"NORMAL".equals(b.getStatus()))
+                .filter(b -> "WARNING".equals(b.getStatus()) || "EXCEEDED".equals(b.getStatus()))
                 .collect(Collectors.toList());
 
         // Savings goals
