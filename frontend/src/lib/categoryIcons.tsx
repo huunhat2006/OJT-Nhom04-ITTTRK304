@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from 'lucide-react';
 import {
   Banknote,
@@ -71,6 +72,9 @@ interface CategoryIconProps {
 }
 
 export function CategoryIcon({ icon, className }: CategoryIconProps) {
+  return (
+    <span className={className} aria-hidden="true">
+      {icon?.trim() || '📦'}
   if (!icon) {
     return <Folder className={className} />;
   }
