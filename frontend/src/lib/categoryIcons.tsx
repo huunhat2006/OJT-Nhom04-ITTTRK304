@@ -72,10 +72,7 @@ interface CategoryIconProps {
 }
 
 export function CategoryIcon({ icon, className }: CategoryIconProps) {
-  return (
-    <span className={className} aria-hidden="true">
-      {icon?.trim() || '📦'}
-  if (!icon) {
+  if (!icon?.trim()) {
     return <Folder className={className} />;
   }
 
