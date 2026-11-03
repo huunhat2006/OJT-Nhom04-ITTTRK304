@@ -1,4 +1,3 @@
-
 import type { LucideIcon } from 'lucide-react';
 import {
   Banknote,
@@ -73,8 +72,9 @@ interface CategoryIconProps {
 
 export function CategoryIcon({ icon, className }: CategoryIconProps) {
   if (!icon?.trim()) {
-    return <Folder className={className} />;
-  }
+    if (!icon) {
+      return <Folder className={className} />;
+    }
 
   const Icon = ICON_MAP[icon.trim().toLowerCase()];
   if (Icon) {

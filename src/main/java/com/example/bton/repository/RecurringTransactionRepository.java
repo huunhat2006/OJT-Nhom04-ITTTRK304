@@ -30,6 +30,6 @@ public interface RecurringTransactionRepository extends JpaRepository<RecurringT
     void incrementExecutionCount(@Param("id") Long id);
 
     @Modifying
-    @Query("UPDATE RecurringTransaction r SET r.isActive = false WHERE r.nextTriggerDate < CURRENT_DATE AND r.is_active = true")
+    @Query("UPDATE RecurringTransaction r SET r.isActive = false WHERE r.nextTriggerDate < CURRENT_DATE AND r.isActive = true")
     void archiveOverdueRecurring();
 }

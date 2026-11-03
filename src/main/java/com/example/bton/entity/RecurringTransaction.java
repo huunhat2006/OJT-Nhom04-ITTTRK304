@@ -44,6 +44,7 @@ public class RecurringTransaction {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private RecurringFrequency frequency = RecurringFrequency.MONTHLY;
 
     @Column(nullable = false, precision = 15, scale = 2)

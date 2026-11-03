@@ -1,0 +1,252 @@
+# Tác giả: Trần Hữu Nhật (Backend & DevOps Lead)
+# ============================================================
+# CI/CD Pipeline — BTON Personal Finance Management System
+# Tự động hóa Build Docker Images & Deploy Production trên VPS
+# ============================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main # Kích hoạt pipeline khi có code đẩy lên nhánh main
+
+jobs:
+  # 1. Build & Push Backend song song (có cache GitHub Actions giúp build cực nhanh)
+  build-backend:
+    name: Build & Push Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: runtime
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/bton-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # 2. Build & Push Frontend song song
+  build-frontend:
+    name: Build & Push Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Frontend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: frontend/Dockerfile
+          target: runtime
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/bton-frontend:latest
+          build-args: |
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # 3. Tự động cập nhật file docker-compose.yml và kích hoạt deploy trên VPS
+  deploy-to-vps:
+    name: Deploy to VPS
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Prepare deployment files
+        run: |
+          echo "COMPOSE_B64=$(base64 -w 0 docker-compose.yml)" >> $GITHUB_ENV
+          echo "ENV_B64=$(base64 -w 0 .env.example)" >> $GITHUB_ENV
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          COMPOSE_B64: ${{ env.COMPOSE_B64 }}
+          ENV_B64: ${{ env.ENV_B64 }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        with:
+          host: ${{ secrets.VPS_HOST || secrets.DEPLOY_HOST }}
+          username: ${{ secrets.VPS_USERNAME || secrets.DEPLOY_USER || 'root' }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          command_timeout: 20m
+          envs: COMPOSE_B64,ENV_B64,DOCKER_USERNAME,DOCKER_PASSWORD
+          script: |
+            set -e
+            mkdir -p /root/bton_project
+            cd /root/bton_project
+
+            # Cập nhật ngay lập tức file docker-compose.yml từ Git qua SSH (0.1s)
+            echo "$COMPOSE_B64" | base64 -d > docker-compose.yml
+
+            # Tự động đồng bộ thời gian chuẩn cho VPS
+            echo "==> Tự động đồng bộ đồng hồ hệ thống VPS..."
+            timedatectl set-timezone Asia/Ho_Chi_Minh 2>/dev/null || true
+            timedatectl set-ntp true 2>/dev/null || true
+
+            # Khởi tạo file .env nếu chưa có hoặc rỗng
+            if [ ! -s .env ]; then
+              echo "==> Khởi tạo file .env từ .env.example..."
+              echo "$ENV_B64" | base64 -d > .env
+              sed -i "s/change_me_root_password/root_$(openssl rand -hex 6)/g" .env
+              sed -i "s/change_me_db_password/pass_$(openssl rand -hex 6)/g" .env
+              sed -i "s/replace_with_a_long_random_secret_at_least_256_bits_long/$(openssl rand -hex 32)/g" .env
+            fi
+
+            # Đồng bộ cấu hình CORS_ALLOWED_ORIGINS trong .env (hỗ trợ budgivee.online)
+            if grep -q "CORS_ALLOWED_ORIGINS" .env; then
+              sed -i 's|CORS_ALLOWED_ORIGINS=.*|CORS_ALLOWED_ORIGINS=*|g' .env
+            else
+              echo "CORS_ALLOWED_ORIGINS=*" >> .env
+            fi
+
+            # Đăng nhập Docker Hub trên VPS để kéo được image private và tránh rate-limit
+            if [ -n "$DOCKER_USERNAME" ] && [ -n "$DOCKER_PASSWORD" ]; then
+              echo "==> Đăng nhập Docker Hub trên VPS với tài khoản $DOCKER_USERNAME..."
+              echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+            fi
+
+            # Khởi động hạ tầng cơ sở dữ liệu (MySQL 8)
+            echo "==> Khởi động hạ tầng cơ sở dữ liệu (MySQL 8)..."
+            docker compose up -d mysql
+
+            # Đọc các biến từ .env để kiểm tra kết nối MySQL
+            set -a
+            . ./.env
+            set +a
+
+            # Kiểm tra xem MySQL có kết nối được không
+            echo "==> Kiểm tra kết nối MySQL root..."
+            MYSQL_READY=false
+            for i in $(seq 1 15); do
+              if docker compose exec -T mysql mysqladmin ping -h localhost -u root -p"${MYSQL_ROOT_PASSWORD}" 2>/dev/null; then
+                MYSQL_READY=true
+                echo "==> MySQL root đã sẵn sàng!"
+                break
+              fi
+              sleep 2
+            done
+
+            # Cấp quyền và đồng bộ mật khẩu cho user ứng dụng (MYSQL_USER)
+            if [ "$MYSQL_READY" = "true" ]; then
+              echo "==> Đồng bộ quyền truy cập cho user '${MYSQL_USER:-bton}'..."
+              docker compose exec -T mysql mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e "
+                CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE:-bton_db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+                CREATE USER IF NOT EXISTS '${MYSQL_USER:-bton}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
+                ALTER USER '${MYSQL_USER:-bton}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
+                GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE:-bton_db}\`.* TO '${MYSQL_USER:-bton}'@'%';
+                FLUSH PRIVILEGES;
+              " 2>/dev/null || true
+            fi
+
+            # Kiểm tra xem user ứng dụng bton có kết nối được không
+            echo "==> Kiểm tra kết nối từ user ứng dụng '${MYSQL_USER:-bton}'..."
+            USER_READY=false
+            for i in $(seq 1 5); do
+              if docker compose exec -T mysql mysql -u "${MYSQL_USER:-bton}" -p"${MYSQL_PASSWORD}" -e "SELECT 1;" 2>/dev/null; then
+                USER_READY=true
+                echo "==> User '${MYSQL_USER:-bton}' kết nối CSDL thành công!"
+                break
+              fi
+              sleep 2
+            done
+
+            # Nếu cả root hoặc user ứng dụng không kết nối được, reset volume mysql_data để MySQL khởi tạo lại với thông tin trong .env
+            if [ "$USER_READY" = "false" ]; then
+              echo "==> Thông tin xác thực CSDL chưa đồng bộ. Đang dọn dẹp volume cũ và khởi tạo lại MySQL..."
+              docker compose down -v
+              docker compose up -d mysql
+              echo "==> Chờ MySQL 8 hoàn tất khởi tạo ban đầu..."
+              for i in $(seq 1 20); do
+                if docker compose exec -T mysql mysql -u "${MYSQL_USER:-bton}" -p"${MYSQL_PASSWORD}" -e "SELECT 1;" 2>/dev/null; then
+                  echo "==> MySQL đã khởi tạo thành công!"
+                  break
+                fi
+                sleep 2
+              done
+            fi
+
+            # Kéo image tuần tự với cơ chế retry tự động
+            echo "==> Kéo image mới nhất từ Docker Hub..."
+            pull_with_retry() {
+              local img=$1
+              for i in 1 2 3; do
+                echo "Đang kéo $img (lần thử $i)..."
+                if docker pull "$img"; then
+                  echo "Kéo $img thành công!"
+                  return 0
+                else
+                  echo "Lần $i thất bại cho $img, thử lại sau 3 giây..."
+                  sleep 3
+                fi
+              done
+              echo "Không thể kéo $img sau 3 lần thử!"
+              return 1
+            }
+
+            DOCKER_USER="${DOCKER_USERNAME:-huunhat2006}"
+            echo "==> Kéo image từ user Docker Hub: $DOCKER_USER"
+            pull_with_retry "${DOCKER_USER}/bton-backend:latest"
+            pull_with_retry "${DOCKER_USER}/bton-frontend:latest"
+
+            # Khởi động Backend trước
+            echo "==> Cập nhật và khởi động Backend..."
+            docker compose up -d --no-deps --force-recreate backend
+
+            # Chờ Backend khởi động và kiểm tra health
+            echo "==> Chờ Backend khởi động (kiểm tra Actuator /health)..."
+            BACKEND_OK=false
+            for i in $(seq 1 25); do
+              HEALTH=$(docker inspect --format='{{json .State.Health.Status}}' bton-backend 2>/dev/null || echo '"unknown"')
+              if [ "$HEALTH" = '"healthy"' ]; then
+                BACKEND_OK=true
+                echo "==> Backend đã khởi động thành công và HEALTHY!"
+                break
+              fi
+              echo "Trạng thái Backend: $HEALTH (lần kiểm tra $i/25)..."
+              sleep 4
+            done
+
+            if [ "$BACKEND_OK" = "false" ]; then
+              echo "==> CẢNH BÁO: Backend chưa đạt trạng thái healthy. Hiển thị logs Backend chi tiết:"
+              docker compose logs --tail=100 backend
+            fi
+
+            # Khởi động Frontend
+            echo "==> Cập nhật và khởi động Frontend..."
+            docker compose up -d --no-deps --force-recreate frontend
+
+            # Dọn dẹp images cũ
+            echo "==> Dọn dẹp images cũ..."
+            docker image prune -f
+
+            echo "==> Trạng thái các dịch vụ sau khi triển khai:"
+            docker compose ps
