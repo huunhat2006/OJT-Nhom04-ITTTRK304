@@ -1,9 +1,10 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
-import { useEffect, useState } from 'react';
+import { TouchEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, ArrowDownRight, Wallet, AlertTriangle } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Wallet, AlertTriangle, RefreshCw, Plus } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useSpaceStore } from '../../store/spaceStore';
+import { useAuthStore } from '../../store/authStore';
 import api from '../../lib/axios';
 import { DashboardResponse } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
@@ -13,36 +14,81 @@ const COLORS = ['#5B4FFF', '#2DD4BF', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'
 
 export default function Overview() {
   const { currentSpace, spaces } = useSpaceStore();
+  const user = useAuthStore((state) => state.user);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const touchStartY = useRef<number | null>(null);
+  const [year, month] = selectedMonth.split('-').map(Number);
+  const hasCurrentSpace = !!currentSpace && spaces.some((space) => space.id === currentSpace.id);
 
-  const currentDate = new Date();
-  const month = currentDate.getMonth() + 1;
-  const year = currentDate.getFullYear();
-
-  useEffect(() => {
-    if (currentSpace && spaces.some((s) => s.id === currentSpace.id)) {
-      fetchDashboard();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSpace, spaces]);
-
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async (isRefresh = false, signal?: AbortSignal) => {
     if (!currentSpace) return;
-    try {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
       setLoading(true);
-      const response = await api.get<DashboardResponse>(
-        `/reports/dashboard?spaceId=${currentSpace.id}&month=${month}&year=${year}`
-      );
+    }
+
+    try {
+      const params = new URLSearchParams({
+        spaceId: currentSpace.id.toString(),
+        month: month.toString(),
+        year: year.toString(),
+      });
+      const response = await api.get<DashboardResponse>(`/reports/dashboard?${params.toString()}`, { signal });
       setDashboard(response.data);
     } catch {
-      toast.error('Không thể tải dữ liệu dashboard');
+      if (!signal?.aborted) {
+        toast.error('Không thể tải dữ liệu dashboard');
+      }
     } finally {
+      if (!signal?.aborted) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
+  }, [currentSpace, month, year]);
+
+  useEffect(() => {
+    if (!hasCurrentSpace) {
+      setDashboard(null);
       setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    void fetchDashboard(false, controller.signal);
+    return () => controller.abort();
+  }, [fetchDashboard, hasCurrentSpace]);
+
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    const scrollContainer = event.currentTarget.closest('main');
+    touchStartY.current =
+      window.innerWidth < 768 && scrollContainer?.scrollTop === 0
+        ? event.touches[0].clientY
+        : null;
+  };
+
+  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    const startY = touchStartY.current;
+    touchStartY.current = null;
+    const scrollContainer = event.currentTarget.closest('main');
+    if (
+      startY !== null &&
+      window.innerWidth < 768 &&
+      scrollContainer?.scrollTop === 0 &&
+      event.changedTouches[0].clientY - startY > 64
+    ) {
+      void fetchDashboard(true);
     }
   };
 
-  if (!currentSpace || !spaces.some((s) => s.id === currentSpace.id)) {
+  if (!hasCurrentSpace) {
     return (
       <div className="flex items-center justify-center h-96">
         <p className="text-gray-500">Vui lòng chọn không gian tài chính</p>
@@ -63,25 +109,53 @@ export default function Overview() {
     value: Number(c.amount),
     color: c.color,
   }));
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Chào buổi sáng' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
+  const monthLabel = new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(
+    new Date(year, month - 1, 1)
+  );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Tổng quan</h1>
-          <p className="text-gray-500 mt-1">
-            Tháng {month}/{year} — {currentSpace.name}
-          </p>
+    <div className="space-y-5 sm:space-y-6" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      {refreshing && (
+        <div className="flex items-center justify-center gap-2 text-sm text-primary" role="status">
+          <RefreshCw className="w-4 h-4 animate-spin" />
+          Đang làm mới...
         </div>
-        <Link to="/transactions" className="btn btn-primary">
-          Xem giao dịch
-        </Link>
+      )}
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm sm:text-base font-medium text-primary">{greeting}, {user?.fullName || 'bạn'}!</p>
+          <h1 className="text-3xl font-bold text-gray-900">Tổng quan</h1>
+          <p className="text-gray-500 mt-1">{monthLabel} — {currentSpace.name}</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <label className="sr-only" htmlFor="dashboard-month">Chọn tháng</label>
+          <input
+            id="dashboard-month"
+            type="month"
+            value={selectedMonth}
+            onChange={(event) => {
+              if (event.target.value) setSelectedMonth(event.target.value);
+            }}
+            className="input min-w-0 py-2"
+            aria-label="Chọn tháng xem dashboard"
+          />
+          <Link to="/transactions?action=create" className="btn btn-primary flex items-center justify-center gap-2 whitespace-nowrap">
+            <Plus className="w-4 h-4" />
+            Thêm giao dịch
+          </Link>
+          <Link to="/budget?action=create" className="btn btn-secondary flex items-center justify-center gap-2 whitespace-nowrap">
+            <Plus className="w-4 h-4" />
+            Đặt ngân sách
+          </Link>
+        </div>
       </div>
 
       {/* Balance Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="card">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
+        <div className="card p-4 sm:p-6">
           <div className="text-sm text-gray-600 mb-2">Số dư</div>
           <div className="text-3xl font-bold text-gray-900">
             {formatCurrency(Number(dashboard?.balance || 0))}
@@ -100,7 +174,7 @@ export default function Overview() {
           </div>
         </div>
 
-        <div className="card">
+        <div className="card p-4 sm:p-6">
           <div className="text-sm text-gray-600 mb-2">Tổng thu nhập</div>
           <div className="text-3xl font-bold text-success">
             {formatCurrency(Number(dashboard?.totalIncome || 0))}
@@ -108,7 +182,7 @@ export default function Overview() {
           <p className="text-xs text-gray-500 mt-4">Trong tháng {month}/{year}</p>
         </div>
 
-        <div className="card">
+        <div className="card p-4 sm:p-6">
           <div className="text-sm text-gray-600 mb-2">Tổng chi tiêu</div>
           <div className="text-3xl font-bold text-danger">
             {formatCurrency(Number(dashboard?.totalExpense || 0))}
@@ -137,7 +211,7 @@ export default function Overview() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
         {/* Category Pie */}
         <div className="card lg:col-span-1">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Chi tiêu theo danh mục</h2>
@@ -147,7 +221,16 @@ export default function Overview() {
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    isAnimationActive
+                    animationDuration={800}
+                  >
                     {pieData.map((entry, index) => (
                       <Cell key={index} fill={entry.color || COLORS[index % COLORS.length]} />
                     ))}
@@ -172,7 +255,7 @@ export default function Overview() {
         </div>
 
         {/* Recent Transactions */}
-        <div className="card lg:col-span-2">
+        <div className="card md:col-span-1 xl:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Giao dịch gần đây</h2>
             <Link to="/transactions" className="text-sm text-primary hover:text-primary-dark">
@@ -224,7 +307,7 @@ export default function Overview() {
               Quản lý
             </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {dashboard.savingsGoals.map((g) => (
               <div key={g.id} className="border border-gray-200 rounded-xl p-4">
                 <div className="font-medium text-gray-900 mb-2">{g.name}</div>

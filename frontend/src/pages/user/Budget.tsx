@@ -1,6 +1,7 @@
 import { getErrorMessage } from '../../lib/apiError';
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, TrendingUp, Pencil, Trash2 } from 'lucide-react';
 import { CategoryIcon } from '../../lib/categoryIcons';
 import { useSpaceStore } from '../../store/spaceStore';
@@ -18,6 +19,8 @@ const emptyForm = {
 
 export default function Budget() {
   const { currentSpace } = useSpaceStore();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [budgets, setBudgets] = useState<BudgetType[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +70,15 @@ export default function Budget() {
     setForm(emptyForm);
     setShowForm(true);
   };
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('action') === 'create') {
+      setEditing(null);
+      setForm(emptyForm);
+      setShowForm(true);
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.pathname, location.search, navigate]);
 
   const openEdit = (b: BudgetType) => {
     setEditing(b);
