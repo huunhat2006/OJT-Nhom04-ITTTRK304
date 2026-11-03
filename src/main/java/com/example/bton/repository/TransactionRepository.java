@@ -57,6 +57,23 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("""
             SELECT COALESCE(SUM(t.amount), 0)
             FROM Transaction t
+            WHERE (:spaceId IS NULL OR t.space.id = :spaceId)
+            AND (:userId IS NULL OR t.user.id = :userId)
+            AND t.type = :type
+            AND t.isDeleted = false
+            AND YEAR(t.transactionDate) = :year
+            AND MONTH(t.transactionDate) = :month
+            """)
+    BigDecimal sumBySpaceOrUserAndTypeAndMonth(
+            @Param("spaceId") Long spaceId,
+            @Param("userId") Long userId,
+            @Param("type") TransactionType type,
+            @Param("year") int year,
+            @Param("month") int month);
+
+    @Query("""
+            SELECT COALESCE(SUM(t.amount), 0)
+            FROM Transaction t
             WHERE t.space.id = :spaceId
             AND t.type = 'EXPENSE'
             AND t.isDeleted = false
@@ -95,6 +112,80 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
                                           @Param("month") int month);
 
     @Query("""
+            SELECT t.category.id, t.category.name, t.category.nameVi, t.category.color, t.category.icon,
+                   COALESCE(SUM(t.amount), 0)
+            FROM Transaction t
+            WHERE (:spaceId IS NULL OR t.space.id = :spaceId)
+            AND (:userId IS NULL OR t.user.id = :userId)
+            AND t.type = 'EXPENSE'
+            AND t.isDeleted = false
+            AND YEAR(t.transactionDate) = :year
+            AND MONTH(t.transactionDate) = :month
+            GROUP BY t.category.id, t.category.name, t.category.nameVi, t.category.color, t.category.icon
+            ORDER BY SUM(t.amount) DESC
+            """)
+    List<Object[]> findTopExpensesByCategory(
+            @Param("spaceId") Long spaceId,
+            @Param("userId") Long userId,
+            @Param("year") int year,
+            @Param("month") int month,
+            Pageable pageable);
+
+    @Query("""
+            SELECT MONTH(t.transactionDate),
+                   COALESCE(SUM(CASE WHEN t.type = 'INCOME' THEN t.amount ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END), 0)
+            FROM Transaction t
+            WHERE (:spaceId IS NULL OR t.space.id = :spaceId)
+            AND (:userId IS NULL OR t.user.id = :userId)
+            AND t.isDeleted = false
+            AND YEAR(t.transactionDate) = :year
+            GROUP BY MONTH(t.transactionDate)
+            ORDER BY MONTH(t.transactionDate) ASC
+            """)
+    List<Object[]> findMonthlyTotalsByYear(
+            @Param("spaceId") Long spaceId,
+            @Param("userId") Long userId,
+            @Param("year") int year);
+
+    @Query("""
+            SELECT t.transactionDate,
+                   COALESCE(SUM(CASE WHEN t.type = 'INCOME' THEN t.amount ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END), 0)
+            FROM Transaction t
+            WHERE (:spaceId IS NULL OR t.space.id = :spaceId)
+            AND (:userId IS NULL OR t.user.id = :userId)
+            AND t.isDeleted = false
+            AND t.transactionDate BETWEEN :fromDate AND :toDate
+            GROUP BY t.transactionDate
+            ORDER BY t.transactionDate ASC
+            """)
+    List<Object[]> findDailyTotalsByDateRange(
+            @Param("spaceId") Long spaceId,
+            @Param("userId") Long userId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    @Query("""
+            SELECT t.category.id, t.category.name, t.category.nameVi, t.category.color, t.category.icon,
+                   COALESCE(SUM(t.amount), 0)
+            FROM Transaction t
+            WHERE (:spaceId IS NULL OR t.space.id = :spaceId)
+            AND (:userId IS NULL OR t.user.id = :userId)
+            AND t.isDeleted = false
+            AND (:type IS NULL OR t.type = :type)
+            AND t.transactionDate BETWEEN :fromDate AND :toDate
+            GROUP BY t.category.id, t.category.name, t.category.nameVi, t.category.color, t.category.icon
+            ORDER BY SUM(t.amount) DESC
+            """)
+    List<Object[]> findCategoryTotalsByDateRange(
+            @Param("spaceId") Long spaceId,
+            @Param("userId") Long userId,
+            @Param("type") TransactionType type,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    @Query("""
             SELECT YEAR(t.transactionDate), MONTH(t.transactionDate),
                    COALESCE(SUM(CASE WHEN t.type = 'INCOME' THEN t.amount ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END), 0)
@@ -129,7 +220,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             SELECT t FROM Transaction t
             LEFT JOIN FETCH t.category
             JOIN FETCH t.user
-            WHERE t.space.id = :spaceId
+            WHERE (:spaceId IS NULL OR t.space.id = :spaceId)
+            AND (:userId IS NULL OR t.user.id = :userId)
             AND t.isDeleted = false
             AND (:startDate IS NULL OR t.transactionDate >= :startDate)
             AND (:endDate IS NULL OR t.transactionDate <= :endDate)
@@ -137,6 +229,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             """)
     List<Transaction> findForExport(
             @Param("spaceId") Long spaceId,
+            @Param("userId") Long userId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 }
