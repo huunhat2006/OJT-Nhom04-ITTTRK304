@@ -17,17 +17,24 @@ public interface RecurringTransactionRepository extends JpaRepository<RecurringT
 
     List<RecurringTransaction> findByUserIdOrderByCreatedAtDesc(Long userId);
 
-    List<RecurringTransaction> findByFamilyIdOrderByCreatedAtDesc(Long familyId);
+    List<RecurringTransaction> findBySpaceIdOrderByCreatedAtDesc(Long spaceId);
 
     List<RecurringTransaction> findByWalletIdOrderByCreatedAtDesc(Long walletId);
 
-    List<RecurringTransaction> findByIsActiveTrueOrderByNextTriggerDateAsc();
+    List<RecurringTransaction> findByIsActiveTrueOrderByNextRunDateAsc();
 
-    Optional<RecurringTransaction> findTopByUserIdAndIsActiveTrueOrderByNextTriggerDateAsc(Long userId);
+    Optional<RecurringTransaction> findTopByUserIdAndIsActiveTrueOrderByNextRunDateAsc(Long userId);
 
     @Modifying
-    @Query("UPDATE RecurringTransaction r SET r.timesExecuted = r.timesExecuted + 1, r.lastExecutedDate = CURRENT_DATE WHERE r.id = :id")
-    void incrementExecutionCount(@Param("id") Long id);
+    @Query("""
+            UPDATE RecurringTransaction r
+            SET r.lastRunDate = :executedOn,
+                r.nextRunDate = :nextRunDate
+            WHERE r.id = :id
+            """)
+    void markExecuted(@Param("id") Long id,
+                      @Param("executedOn") LocalDate executedOn,
+                      @Param("nextRunDate") LocalDate nextRunDate);
 
     @Modifying
     @Query("UPDATE RecurringTransaction r SET r.isActive = false WHERE r.nextTriggerDate < CURRENT_DATE AND r.isActive = true")
