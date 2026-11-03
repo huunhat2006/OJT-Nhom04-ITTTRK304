@@ -71,10 +71,9 @@ interface CategoryIconProps {
 }
 
 export function CategoryIcon({ icon, className }: CategoryIconProps) {
-  if (!icon?.trim()) {
-    if (!icon) {
-      return <Folder className={className} />;
-    }
+  if (!icon || !icon.trim()) {
+    return <Folder className={className} />;
+  }
 
   const Icon = ICON_MAP[icon.trim().toLowerCase()];
   if (Icon) {
