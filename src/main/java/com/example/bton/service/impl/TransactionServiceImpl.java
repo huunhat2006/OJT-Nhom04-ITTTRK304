@@ -87,6 +87,7 @@ public class TransactionServiceImpl {
                 .category(category)
                 .type(request.getType())
                 .amount(amount)
+                .fee(request.getFee() != null ? request.getFee() : BigDecimal.ZERO)
                 .description(request.getDescription())
                 .transactionDate(request.getTransactionDate())
                 .note(request.getNote())
@@ -170,6 +171,7 @@ public class TransactionServiceImpl {
         existingTransaction.setCategory(category);
         existingTransaction.setType(request.getType());
         existingTransaction.setAmount(request.getAmount());
+        existingTransaction.setFee(request.getFee() != null ? request.getFee() : BigDecimal.ZERO);
         existingTransaction.setDescription(request.getDescription());
         existingTransaction.setTransactionDate(request.getTransactionDate());
         existingTransaction.setNote(request.getNote());
@@ -323,6 +325,7 @@ public class TransactionServiceImpl {
                         : null)
                 .type(t.getType())
                 .amount(t.getAmount())
+                .fee(t.getFee() != null ? t.getFee() : BigDecimal.ZERO)
                 .description(t.getDescription())
                 .transactionDate(t.getTransactionDate())
                 .note(t.getNote())

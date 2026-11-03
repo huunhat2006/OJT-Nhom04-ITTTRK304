@@ -23,11 +23,21 @@ public class AuditLog {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "admin_id", nullable = false)
+    @JoinColumn(name = "admin_id")
     private User admin;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @Column(nullable = false, length = 100)
     private String action;
+
+    @Column(name = "entity_name", length = 50)
+    private String entityName;
+
+    @Column(name = "entity_id")
+    private Long entityId;
 
     @Column(name = "target_type", length = 50)
     private String targetType;

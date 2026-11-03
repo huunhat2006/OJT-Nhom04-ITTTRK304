@@ -183,6 +183,7 @@ public class WalletServiceImpl {
                 .category(null) // Transfer doesn't belong to an income/expense category
                 .type(TransactionType.TRANSFER)
                 .amount(amount)
+                .fee(fee)
                 .description(request.getNote() != null ? request.getNote() : "Chuyển tiền nội bộ")
                 .transactionDate(LocalDate.now())
                 .wallet(fromWallet)

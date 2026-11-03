@@ -2,6 +2,7 @@
 package com.example.bton.entity;
 
 import com.example.bton.enums.RecurringFrequency;
+import com.example.bton.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -31,8 +32,8 @@ public class RecurringTransaction {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "family_id")
-    private FinancialSpace family;
+    @JoinColumn(name = "space_id", nullable = false)
+    private FinancialSpace space;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id")
@@ -44,24 +45,34 @@ public class RecurringTransaction {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    @Builder.Default
-    private RecurringFrequency frequency = RecurringFrequency.MONTHLY;
+    private TransactionType type;
 
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;
 
-    @Column(name = "next_trigger_date", nullable = false)
-    private LocalDate nextTriggerDate;
+    @Column(length = 500)
+    private String description;
 
-    @Column(name = "last_executed_date")
-    private LocalDate lastExecutedDate;
-
-    @Column(name = "max_occurrences")
-    private Integer maxOccurrences;
-
-    @Column(name = "times_executed", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
     @Builder.Default
-    private Integer timesExecuted = 0;
+    private RecurringFrequency frequency = RecurringFrequency.MONTHLY;
+
+    @Column(name = "interval_count", nullable = false)
+    @Builder.Default
+    private Integer intervalCount = 1;
+
+    @Column(name = "start_date", nullable = false)
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
+    @Column(name = "next_run_date")
+    private LocalDate nextRunDate;
+
+    @Column(name = "last_run_date")
+    private LocalDate lastRunDate;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default
