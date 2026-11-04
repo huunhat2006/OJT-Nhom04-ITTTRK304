@@ -4,8 +4,10 @@ package com.example.bton.enums;
 public enum NotificationType {
     BUDGET_WARNING,
     BUDGET_EXCEEDED,
+    GOAL_COMPLETED,
     GOAL_ACHIEVED,
     GOAL_DEADLINE,
     FAMILY_INVITE,
+    WEEKLY_SUMMARY,
     SYSTEM
 }

@@ -248,4 +248,17 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("userId") Long userId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    @Query("""
+            SELECT COALESCE(SUM(CASE WHEN t.type = 'INCOME' THEN t.amount ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN t.type = 'EXPENSE' THEN t.amount ELSE 0 END), 0)
+            FROM Transaction t
+            WHERE t.user.id = :userId
+            AND t.isDeleted = false
+            AND t.transactionDate BETWEEN :fromDate AND :toDate
+            """)
+    List<Object[]> sumTotalsByUserIdAndDateRange(
+            @Param("userId") Long userId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
 }

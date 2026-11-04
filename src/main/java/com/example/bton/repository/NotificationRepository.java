@@ -13,6 +13,17 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
+    @Query("""
+            SELECT n FROM Notification n
+            WHERE n.user.id = :userId
+            AND (:isRead IS NULL OR n.isRead = :isRead)
+            ORDER BY n.createdAt DESC
+            """)
+    Page<Notification> findByUserIdWithFilter(
+            @Param("userId") Long userId,
+            @Param("isRead") Boolean isRead,
+            Pageable pageable);
+
     Page<Notification> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     long countByUserIdAndIsReadFalse(Long userId);
