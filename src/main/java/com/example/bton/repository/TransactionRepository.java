@@ -87,6 +87,21 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
                                                   @Param("month") int month);
 
     @Query("""
+            SELECT COALESCE(SUM(t.amount), 0)
+            FROM Transaction t
+            WHERE t.space.id = :spaceId
+            AND t.type = 'EXPENSE'
+            AND t.isDeleted = false
+            AND t.category.id = :categoryId
+            AND t.transactionDate BETWEEN :fromDate AND :toDate
+            """)
+    BigDecimal sumExpenseBySpaceCategoryAndDateRange(
+            @Param("spaceId") Long spaceId,
+            @Param("categoryId") Long categoryId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    @Query("""
             SELECT t FROM Transaction t
             LEFT JOIN FETCH t.category
             WHERE t.space.id = :spaceId

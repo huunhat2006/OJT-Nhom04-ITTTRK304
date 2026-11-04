@@ -20,3 +20,4 @@ public interface ReportExportService {
      */
     byte[] exportToExcel(User user, FinancialSpace space, List<Transaction> transactions, LocalDate from, LocalDate to);
 }
+

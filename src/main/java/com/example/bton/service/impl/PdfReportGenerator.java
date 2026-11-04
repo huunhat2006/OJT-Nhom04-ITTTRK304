@@ -419,3 +419,4 @@ public class PdfReportGenerator {
         double percentage;
     }
 }
+
