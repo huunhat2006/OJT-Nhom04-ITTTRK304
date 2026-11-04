@@ -3,11 +3,8 @@ import { useEffect, useState } from 'react';
 import { 
   AlertTriangle, 
   RefreshCw, 
-  CheckCircle, 
-  Calendar,
-  TrendingUp,
-  Filter,
-  Download
+  CheckCircle,
+  Filter
 } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
 import { SpendingAlert, SpendingAnalysisResponse, AlertSeverity, AlertType } from '../../types';

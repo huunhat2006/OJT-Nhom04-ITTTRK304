@@ -1,5 +1,4 @@
 // Tác giả: Frontend Developer - Alert Detail Modal
-import { X } from 'lucide-react';
 import { SpendingAlert } from '../types';
 import { formatCurrency, formatDate } from '../lib/utils';
 import Modal from './Modal';
@@ -55,7 +54,7 @@ export default function AlertModal({ isOpen, onClose, alert }: AlertModalProps) 
   const recommendations = getRecommendations(alert);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Chi tiết cảnh báo">
+    <Modal open={isOpen} onClose={onClose} title="Chi tiết cảnh báo">
       <div className="space-y-6">
         {/* Alert Title */}
         <div>
