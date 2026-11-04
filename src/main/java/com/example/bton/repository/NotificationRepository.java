@@ -24,9 +24,15 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             @Param("isRead") Boolean isRead,
             Pageable pageable);
 
-    Page<Notification> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
+    @Query("""
+            SELECT n FROM Notification n
+            WHERE n.user.id = :userId
+            ORDER BY n.createdAt DESC
+            """)
+    Page<Notification> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
-    long countByUserIdAndIsReadFalse(Long userId);
+    @Query("SELECT COUNT(n) FROM Notification n WHERE n.user.id = :userId AND n.isRead = false")
+    long countByUserIdAndIsReadFalse(@Param("userId") Long userId);
 
     @Modifying
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.user.id = :userId")
