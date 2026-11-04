@@ -177,10 +177,23 @@ export default function Family() {
     }
   };
 
-  const copyInviteCode = (code?: string) => {
+  const copyInviteCode = async (code?: string) => {
     if (!code) return;
-    navigator.clipboard.writeText(code);
-    toast.success('Đã sao chép mã mời');
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success('Đã sao chép mã mời');
+    } catch (err) {
+      // Fallback for environments without clipboard support
+      const textarea = document.createElement('textarea');
+      textarea.value = code;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      toast.success('Đã sao chép mã mời');
+    }
   };
 
   const isOwner = (space: FinancialSpace) => space.ownerId === user?.id;
