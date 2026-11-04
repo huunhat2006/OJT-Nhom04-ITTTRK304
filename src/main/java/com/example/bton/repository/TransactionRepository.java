@@ -216,20 +216,4 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             """)
     List<Object[]> countTransactionsByMonth(@Param("since") LocalDate since);
 
-    @Query("""
-            SELECT t FROM Transaction t
-            LEFT JOIN FETCH t.category
-            JOIN FETCH t.user
-            WHERE (:spaceId IS NULL OR t.space.id = :spaceId)
-            AND (:userId IS NULL OR t.user.id = :userId)
-            AND t.isDeleted = false
-            AND (:startDate IS NULL OR t.transactionDate >= :startDate)
-            AND (:endDate IS NULL OR t.transactionDate <= :endDate)
-            ORDER BY t.transactionDate DESC, t.createdAt DESC
-            """)
-    List<Transaction> findForExport(
-            @Param("spaceId") Long spaceId,
-            @Param("userId") Long userId,
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate);
 }
