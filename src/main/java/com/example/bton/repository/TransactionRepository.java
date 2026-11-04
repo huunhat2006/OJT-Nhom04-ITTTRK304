@@ -219,6 +219,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("""
             SELECT t FROM Transaction t
             LEFT JOIN FETCH t.category
+            LEFT JOIN FETCH t.wallet
             JOIN FETCH t.user
             WHERE (:spaceId IS NULL OR t.space.id = :spaceId)
             AND (:userId IS NULL OR t.user.id = :userId)

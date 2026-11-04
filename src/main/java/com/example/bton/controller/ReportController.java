@@ -72,13 +72,13 @@ public class ReportController {
     @Operation(summary = "Export financial report with format=pdf|excel&from=&to=")
     public ResponseEntity<byte[]> exportReport(
             @RequestParam(required = false) Long spaceId,
-            @RequestParam(defaultValue = "excel") String format,
+            @RequestParam(defaultValue = "pdf") String format,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         byte[] data = reportService.exportReport(spaceId, currentUser.getId(), format, from, to);
         boolean isPdf = "pdf".equalsIgnoreCase(format);
-        String filename = "BaoCaoThuChi_" + (from != null ? from : LocalDate.now()) + (isPdf ? ".pdf" : ".xlsx");
+        String filename = isPdf ? "report.pdf" : "report.xlsx";
         String contentType = isPdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
         return ResponseEntity.ok()
@@ -86,6 +86,8 @@ public class ReportController {
                 .header(HttpHeaders.CONTENT_TYPE, contentType)
                 .body(data);
     }
+
+
 
     // Retained for backward compatibility with existing Frontend
     @GetMapping("/dashboard")
