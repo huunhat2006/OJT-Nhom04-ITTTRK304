@@ -3,14 +3,15 @@ package com.example.bton.service.impl;
 
 import com.example.bton.dto.response.*;
 import com.example.bton.entity.FinancialSpace;
+import com.example.bton.entity.User;
 import com.example.bton.enums.SpaceType;
 import com.example.bton.enums.TransactionType;
 import com.example.bton.repository.FinancialSpaceRepository;
 import com.example.bton.repository.TransactionRepository;
+import com.example.bton.repository.UserRepository;
+import com.example.bton.service.ReportExportService;
 import lombok.RequiredArgsConstructor;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.ss.util.CellRangeAddress;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,8 @@ public class ReportServiceImpl {
     private final SavingsGoalServiceImpl savingsGoalService;
     private final FinancialSpaceServiceImpl spaceService;
     private final FinancialSpaceRepository spaceRepository;
+    private final UserRepository userRepository;
+    private final ReportExportService reportExportService;
 
     @Transactional(readOnly = true)
     public List<MonthlyReportResponse> getMonthlyReports(Long spaceId, Long userId, Integer year) {
@@ -264,24 +267,31 @@ public class ReportServiceImpl {
                 .build();
     }
 
+    @Cacheable(value = "reportExport", key = "(#spaceId != null ? #spaceId : 0) + '_' + #userId + '_' + #format.toLowerCase() + '_' + (#from != null ? #from.toString() : 'all') + '_' + (#to != null ? #to.toString() : 'all')")
     @Transactional(readOnly = true)
     public byte[] exportReport(Long spaceId, Long userId, String format, LocalDate from, LocalDate to) {
-        if ("pdf".equalsIgnoreCase(format)) {
-            return exportTransactionsToPdf(spaceId, userId, from, to);
+        Long targetSpaceId = resolveSpaceId(spaceId, userId);
+        FinancialSpace space = null;
+        if (targetSpaceId != null) {
+            spaceService.verifySpaceAccess(targetSpaceId, userId);
+            space = spaceRepository.findById(targetSpaceId).orElse(null);
         }
-        return exportTransactionsToExcel(spaceId, userId, from, to);
+
+        User user = userRepository.findById(userId).orElse(null);
+        var transactions = transactionRepository.findForExport(targetSpaceId, (targetSpaceId == null ? userId : null), from, to);
+
+        if ("pdf".equalsIgnoreCase(format)) {
+            return reportExportService.exportToPdf(user, space, transactions, from, to);
+        }
+        return reportExportService.exportToExcel(user, space, transactions, from, to);
     }
 
-    private byte[] exportTransactionsToPdf(Long spaceId, Long userId, LocalDate from, LocalDate to) {
-        // Chuẩn bị logic xuất báo cáo PDF (có thể mở rộng với iText/OpenPDF)
-        String pdf = "%PDF-1.4\n"
-                + "1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
-                + "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
-                + "3 0 obj<</Type/Page/MediaBox[0 0 595 842]/Parent 2 0 R/Resources<<>>>>endobj\n"
-                + "xref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000052 00000 n \n0000000101 00000 n \n"
-                + "trailer<</Size 4/Root 1 0 R>>\nstartxref\n180\n%%EOF";
-        return pdf.getBytes(StandardCharsets.UTF_8);
+    @Transactional(readOnly = true)
+    public byte[] exportTransactionsToExcel(Long spaceId, Long userId, LocalDate startDate, LocalDate endDate) {
+        return exportReport(spaceId, userId, "excel", startDate, endDate);
     }
+
+
 
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard(Long spaceId, Long userId, int month, int year) {
@@ -415,193 +425,6 @@ public class ReportServiceImpl {
                     .categoryId(catId).categoryName(name).categoryNameVi(nameVi)
                     .color(color).icon(icon).amount(amount).percentage(pct).build();
         }).collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public byte[] exportTransactionsToExcel(Long spaceId, Long userId, LocalDate startDate, LocalDate endDate) {
-        Long targetSpaceId = resolveSpaceId(spaceId, userId);
-        if (targetSpaceId != null) {
-            spaceService.verifySpaceAccess(targetSpaceId, userId);
-        }
-
-        var transactions = transactionRepository.findForExport(targetSpaceId, (targetSpaceId == null ? userId : null), startDate, endDate);
-
-        try (Workbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-
-            Sheet sheet = workbook.createSheet("Sổ Thu Chi");
-
-            CellStyle titleStyle = workbook.createCellStyle();
-            Font titleFont = workbook.createFont();
-            titleFont.setBold(true);
-            titleFont.setFontHeightInPoints((short) 16);
-            titleFont.setColor(IndexedColors.DARK_BLUE.getIndex());
-            titleStyle.setFont(titleFont);
-            titleStyle.setAlignment(HorizontalAlignment.CENTER);
-
-            CellStyle subTitleStyle = workbook.createCellStyle();
-            Font subTitleFont = workbook.createFont();
-            subTitleFont.setItalic(true);
-            subTitleFont.setFontHeightInPoints((short) 10);
-            subTitleStyle.setFont(subTitleFont);
-            subTitleStyle.setAlignment(HorizontalAlignment.CENTER);
-
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
-            headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-            headerStyle.setBorderBottom(BorderStyle.THIN);
-            headerStyle.setBorderTop(BorderStyle.THIN);
-            headerStyle.setBorderRight(BorderStyle.THIN);
-            headerStyle.setBorderLeft(BorderStyle.THIN);
-
-            CellStyle dataStyle = workbook.createCellStyle();
-            dataStyle.setBorderBottom(BorderStyle.THIN);
-            dataStyle.setBorderTop(BorderStyle.THIN);
-            dataStyle.setBorderRight(BorderStyle.THIN);
-            dataStyle.setBorderLeft(BorderStyle.THIN);
-            dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-
-            CellStyle dateStyle = workbook.createCellStyle();
-            dateStyle.cloneStyleFrom(dataStyle);
-            dateStyle.setAlignment(HorizontalAlignment.CENTER);
-
-            DataFormat format = workbook.createDataFormat();
-
-            CellStyle incomeStyle = workbook.createCellStyle();
-            incomeStyle.cloneStyleFrom(dataStyle);
-            Font incomeFont = workbook.createFont();
-            incomeFont.setColor(IndexedColors.GREEN.getIndex());
-            incomeFont.setBold(true);
-            incomeStyle.setFont(incomeFont);
-            incomeStyle.setDataFormat(format.getFormat("#,##0 ₫"));
-            incomeStyle.setAlignment(HorizontalAlignment.RIGHT);
-
-            CellStyle expenseStyle = workbook.createCellStyle();
-            expenseStyle.cloneStyleFrom(dataStyle);
-            Font expenseFont = workbook.createFont();
-            expenseFont.setColor(IndexedColors.RED.getIndex());
-            expenseFont.setBold(true);
-            expenseStyle.setFont(expenseFont);
-            expenseStyle.setDataFormat(format.getFormat("#,##0 ₫"));
-            expenseStyle.setAlignment(HorizontalAlignment.RIGHT);
-
-            CellStyle currencyStyle = workbook.createCellStyle();
-            currencyStyle.cloneStyleFrom(dataStyle);
-            currencyStyle.setDataFormat(format.getFormat("#,##0 ₫"));
-            currencyStyle.setAlignment(HorizontalAlignment.RIGHT);
-
-            Row titleRow = sheet.createRow(0);
-            Cell titleCell = titleRow.createCell(0);
-            titleCell.setCellValue("BÁO CÁO CHI TIẾT THU CHI TÀI CHÍNH");
-            titleCell.setCellStyle(titleStyle);
-            sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 6));
-
-            Row subRow = sheet.createRow(1);
-            Cell subCell = subRow.createCell(0);
-            String timeRange = "Từ ngày: " + (startDate != null ? startDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "Tất cả")
-                    + "  -  Đến ngày: " + (endDate != null ? endDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "Hiện tại");
-            subCell.setCellValue(timeRange + "  |  Xuất ngày: " + LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-            subCell.setCellStyle(subTitleStyle);
-            sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 6));
-
-            sheet.createRow(2);
-
-            String[] headers = {"STT", "Ngày giao dịch", "Loại", "Danh mục", "Số tiền", "Người tạo", "Ghi chú"};
-            Row headerRow = sheet.createRow(3);
-            headerRow.setHeightInPoints(24);
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
-            }
-
-            int rowIdx = 4;
-            int stt = 1;
-            BigDecimal totalIncome = BigDecimal.ZERO;
-            BigDecimal totalExpense = BigDecimal.ZERO;
-
-            for (var t : transactions) {
-                Row row = sheet.createRow(rowIdx++);
-                row.setHeightInPoints(20);
-
-                Cell c0 = row.createCell(0);
-                c0.setCellValue(stt++);
-                c0.setCellStyle(dateStyle);
-
-                Cell c1 = row.createCell(1);
-                c1.setCellValue(t.getTransactionDate() != null ? t.getTransactionDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "-");
-                c1.setCellStyle(dateStyle);
-
-                Cell c2 = row.createCell(2);
-                c2.setCellValue(t.getType() == TransactionType.INCOME ? "Thu nhập" : (t.getType() == TransactionType.EXPENSE ? "Chi tiêu" : "Chuyển tiền"));
-                c2.setCellStyle(dateStyle);
-
-                Cell c3 = row.createCell(3);
-                c3.setCellValue(t.getCategory() != null ? (t.getCategory().getNameVi() != null ? t.getCategory().getNameVi() : t.getCategory().getName()) : "Khác");
-                c3.setCellStyle(dataStyle);
-
-                Cell c4 = row.createCell(4);
-                c4.setCellValue(t.getAmount().doubleValue());
-                if (t.getType() == TransactionType.INCOME) {
-                    c4.setCellStyle(incomeStyle);
-                    totalIncome = totalIncome.add(t.getAmount());
-                } else if (t.getType() == TransactionType.EXPENSE) {
-                    c4.setCellStyle(expenseStyle);
-                    totalExpense = totalExpense.add(t.getAmount());
-                } else {
-                    c4.setCellStyle(currencyStyle);
-                }
-
-                Cell c5 = row.createCell(5);
-                c5.setCellValue(t.getUser() != null ? t.getUser().getFullName() : "-");
-                c5.setCellStyle(dataStyle);
-
-                Cell c6 = row.createCell(6);
-                String note = t.getDescription() != null ? t.getDescription() : (t.getNote() != null ? t.getNote() : "");
-                c6.setCellValue(note);
-                c6.setCellStyle(dataStyle);
-            }
-
-            Row rowSumIncome = sheet.createRow(rowIdx++);
-            Cell cSumInLabel = rowSumIncome.createCell(3);
-            cSumInLabel.setCellValue("TỔNG THU NHẬP:");
-            cSumInLabel.setCellStyle(headerStyle);
-            Cell cSumInVal = rowSumIncome.createCell(4);
-            cSumInVal.setCellValue(totalIncome.doubleValue());
-            cSumInVal.setCellStyle(currencyStyle);
-
-            Row rowSumExpense = sheet.createRow(rowIdx++);
-            Cell cSumOutLabel = rowSumExpense.createCell(3);
-            cSumOutLabel.setCellValue("TỔNG CHI TIÊU:");
-            cSumOutLabel.setCellStyle(headerStyle);
-            Cell cSumOutVal = rowSumExpense.createCell(4);
-            cSumOutVal.setCellValue(totalExpense.doubleValue());
-            cSumOutVal.setCellStyle(currencyStyle);
-
-            Row rowBalance = sheet.createRow(rowIdx++);
-            Cell cBalLabel = rowBalance.createCell(3);
-            cBalLabel.setCellValue("CHÊNH LỆCH DÒNG TIỀN:");
-            cBalLabel.setCellStyle(headerStyle);
-            Cell cBalVal = rowBalance.createCell(4);
-            cBalVal.setCellValue(totalIncome.subtract(totalExpense).doubleValue());
-            cBalVal.setCellStyle(currencyStyle);
-
-            for (int i = 0; i < headers.length; i++) {
-                sheet.autoSizeColumn(i);
-                sheet.setColumnWidth(i, Math.max(sheet.getColumnWidth(i) + 1200, 3500));
-            }
-
-            workbook.write(out);
-            return out.toByteArray();
-        } catch (IOException e) {
-            throw new RuntimeException("Lỗi khi xuất tệp Excel báo cáo: " + e.getMessage(), e);
-        }
     }
 
     private Long resolveSpaceId(Long spaceId, Long userId) {
