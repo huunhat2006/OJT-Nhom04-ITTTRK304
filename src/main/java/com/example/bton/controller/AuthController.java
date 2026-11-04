@@ -56,8 +56,7 @@ public class AuthController {
 
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Get current authenticated user info",
-            security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Get current authenticated user info", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<UserResponse> getCurrentUser(
             @AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(authService.getCurrentUser(currentUser.getId()));
@@ -65,8 +64,7 @@ public class AuthController {
 
     @PutMapping("/change-password")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Change current user password",
-            security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Change current user password", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<Void> changePassword(
             @AuthenticationPrincipal UserPrincipal currentUser,
             @Valid @RequestBody ChangePasswordRequest request) {

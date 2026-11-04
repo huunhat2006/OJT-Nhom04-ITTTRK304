@@ -20,6 +20,7 @@ public class TransactionResponse {
     private CategoryResponse category;
     private TransactionType type;
     private BigDecimal amount;
+    private BigDecimal fee;
     private String description;
     private LocalDate transactionDate;
     private String note;

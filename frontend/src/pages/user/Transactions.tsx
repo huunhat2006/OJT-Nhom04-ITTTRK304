@@ -1,5 +1,6 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Download, Search, Pencil, Trash2, Image as ImageIcon } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
 import api from '../../lib/axios';
@@ -21,6 +22,8 @@ const emptyForm = {
 
 export default function Transactions() {
   const { currentSpace } = useSpaceStore();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [transactions, setTransactions] = useState<PageResponse<Transaction> | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -92,6 +95,15 @@ export default function Transactions() {
     setForm(emptyForm);
     setShowForm(true);
   };
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('action') === 'create') {
+      setEditing(null);
+      setForm(emptyForm);
+      setShowForm(true);
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.pathname, location.search, navigate]);
 
   const openEdit = (t: Transaction) => {
     setEditing(t);

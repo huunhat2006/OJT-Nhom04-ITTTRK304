@@ -43,7 +43,7 @@ public class Wallet {
     @Builder.Default
     private WalletType walletType = WalletType.CASH;
 
-    @Column(name = "currency", nullable = false, length = 3)
+    @Column(name = "currency", nullable = false, length = 10)
     @Builder.Default
     private String currency = "VND";
 

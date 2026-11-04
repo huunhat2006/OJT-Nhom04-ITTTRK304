@@ -71,7 +71,7 @@ interface CategoryIconProps {
 }
 
 export function CategoryIcon({ icon, className }: CategoryIconProps) {
-  if (!icon) {
+  if (!icon || !icon.trim()) {
     return <Folder className={className} />;
   }
 

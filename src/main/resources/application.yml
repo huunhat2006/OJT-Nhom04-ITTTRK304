@@ -30,6 +30,7 @@ spring:
 
 server:
   port: 8080
+  forward-headers-strategy: framework
   servlet:
     context-path: /
   error:
@@ -41,6 +42,8 @@ app:
     secret: ${JWT_SECRET:bton-super-secret-key-for-jwt-signing-must-be-at-least-256-bits-long-in-production}
     expiration: 3600000  # 60 minutes in ms (SRS UC01)
     refresh-expiration: 604800000  # 7 days in ms
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
 
 springdoc:
   api-docs:
