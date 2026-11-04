@@ -18,6 +18,7 @@ import {
   X,
   Tags,
   Home,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useSpaceStore } from '../store/spaceStore';
@@ -113,6 +114,7 @@ export default function DashboardLayout() {
     { path: '/wallets', label: 'Ví tiền', icon: Wallet },
     { path: '/budget', label: 'Ngân sách', icon: BarChart3 },
     { path: '/goals', label: 'Mục tiêu', icon: Target },
+    { path: '/alerts', label: 'Cảnh báo', icon: AlertTriangle },
     { path: '/family', label: 'Gia đình', icon: Home },
     { path: '/categories', label: 'Danh mục', icon: Tags },
     { path: '/reports', label: 'Báo cáo', icon: BarChart3 },
