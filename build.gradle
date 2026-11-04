@@ -55,6 +55,14 @@ dependencies {
     implementation 'org.apache.poi:poi:5.2.5'
     implementation 'org.apache.poi:poi-ooxml:5.2.5'
 
+    // iText 7 for PDF report export
+    implementation 'com.itextpdf:kernel:7.2.5'
+    implementation 'com.itextpdf:io:7.2.5'
+    implementation 'com.itextpdf:layout:7.2.5'
+
+    // JFreeChart for chart generation embedded in PDF reports
+    implementation 'org.jfree:jfreechart:1.5.4'
+
     // DevTools
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 

@@ -24,8 +24,9 @@ RUN ./gradlew bootJar --no-daemon -x test
 # ── Stage 2: Runtime ──────────────────────────────────────────
 FROM eclipse-temurin:21-jre-alpine AS runtime
 
-# Security: create user and app directory with logs
-RUN addgroup -S bton && adduser -S bton -G bton \
+# Security: install fonts for PDF/charts generation, create user and app directory with logs
+RUN apk add --no-cache font-dejavu ttf-dejavu fontconfig \
+    && addgroup -S bton && adduser -S bton -G bton \
     && mkdir -p /app/logs \
     && chown -R bton:bton /app
 
@@ -47,5 +48,6 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=45s --retries=5 \
 ENTRYPOINT ["java", \
     "-XX:+UseContainerSupport", \
     "-XX:MaxRAMPercentage=75.0", \
+    "-Djava.awt.headless=true", \
     "-Djava.security.egd=file:/dev/./urandom", \
     "-jar", "app.jar"]

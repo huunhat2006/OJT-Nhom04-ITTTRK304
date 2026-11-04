@@ -3,11 +3,15 @@ package com.example.bton.service.impl;
 
 import com.example.bton.dto.response.*;
 import com.example.bton.entity.FinancialSpace;
+import com.example.bton.entity.User;
 import com.example.bton.enums.SpaceType;
 import com.example.bton.enums.TransactionType;
 import com.example.bton.repository.FinancialSpaceRepository;
 import com.example.bton.repository.TransactionRepository;
+import com.example.bton.repository.UserRepository;
+import com.example.bton.service.ReportExportService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +36,8 @@ public class ReportServiceImpl {
     private final SavingsGoalServiceImpl savingsGoalService;
     private final FinancialSpaceServiceImpl spaceService;
     private final FinancialSpaceRepository spaceRepository;
+    private final UserRepository userRepository;
+    private final ReportExportService reportExportService;
 
     @Transactional(readOnly = true)
     public List<MonthlyReportResponse> getMonthlyReports(Long spaceId, Long userId, Integer year) {
@@ -259,6 +265,30 @@ public class ReportServiceImpl {
                 .previousSavingsRate(prevSavingsRate)
                 .savingsRateChange(savingsRateChange)
                 .build();
+    }
+
+    @Cacheable(value = "reportExport", key = "(#spaceId != null ? #spaceId : 0) + '_' + #userId + '_' + #format.toLowerCase() + '_' + (#from != null ? #from.toString() : 'all') + '_' + (#to != null ? #to.toString() : 'all')")
+    @Transactional(readOnly = true)
+    public byte[] exportReport(Long spaceId, Long userId, String format, LocalDate from, LocalDate to) {
+        Long targetSpaceId = resolveSpaceId(spaceId, userId);
+        FinancialSpace space = null;
+        if (targetSpaceId != null) {
+            spaceService.verifySpaceAccess(targetSpaceId, userId);
+            space = spaceRepository.findById(targetSpaceId).orElse(null);
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        var transactions = transactionRepository.findForExport(targetSpaceId, (targetSpaceId == null ? userId : null), from, to);
+
+        if ("pdf".equalsIgnoreCase(format)) {
+            return reportExportService.exportToPdf(user, space, transactions, from, to);
+        }
+        return reportExportService.exportToExcel(user, space, transactions, from, to);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportTransactionsToExcel(Long spaceId, Long userId, LocalDate startDate, LocalDate endDate) {
+        return exportReport(spaceId, userId, "excel", startDate, endDate);
     }
 
 

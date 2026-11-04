@@ -16,10 +16,17 @@ public class CacheConfig {
 
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager("dashboardSummary");
-        cacheManager.setCaffeine(Caffeine.newBuilder()
-                .expireAfterWrite(5, TimeUnit.MINUTES)
-                .maximumSize(1000));
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager();
+        cacheManager.registerCustomCache("dashboardSummary",
+                Caffeine.newBuilder()
+                        .expireAfterWrite(5, TimeUnit.MINUTES)
+                        .maximumSize(1000)
+                        .build());
+        cacheManager.registerCustomCache("reportExport",
+                Caffeine.newBuilder()
+                        .expireAfterWrite(10, TimeUnit.MINUTES)
+                        .maximumSize(500)
+                        .build());
         return cacheManager;
     }
 }

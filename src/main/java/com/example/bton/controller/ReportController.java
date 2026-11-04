@@ -68,6 +68,25 @@ public class ReportController {
         return ResponseEntity.ok(reportService.getComparison(spaceId, currentUser.getId(), month, year));
     }
 
+    @GetMapping("/export")
+    @Operation(summary = "Export financial report with format=pdf|excel&from=&to=")
+    public ResponseEntity<byte[]> exportReport(
+            @RequestParam(required = false) Long spaceId,
+            @RequestParam(defaultValue = "pdf") String format,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        byte[] data = reportService.exportReport(spaceId, currentUser.getId(), format, from, to);
+        boolean isPdf = "pdf".equalsIgnoreCase(format);
+        String filename = isPdf ? "report.pdf" : "report.xlsx";
+        String contentType = isPdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CONTENT_TYPE, contentType)
+                .body(data);
+    }
+
 
 
     // Retained for backward compatibility with existing Frontend
