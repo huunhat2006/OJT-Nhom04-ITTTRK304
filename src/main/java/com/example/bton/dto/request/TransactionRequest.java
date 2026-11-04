@@ -29,6 +29,10 @@ public class TransactionRequest {
     @Digits(integer = 13, fraction = 2, message = "Amount format is invalid")
     private BigDecimal amount;
 
+    @DecimalMin(value = "0.00", message = "Fee must not be negative")
+    @Digits(integer = 13, fraction = 2, message = "Fee format is invalid")
+    private BigDecimal fee;
+
     @Size(max = 500, message = "Description must not exceed 500 characters")
     private String description;
 

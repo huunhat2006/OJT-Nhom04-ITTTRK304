@@ -45,6 +45,10 @@ public class Transaction {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;
 
+    @Column(nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal fee = BigDecimal.ZERO;
+
     @Column(length = 500)
     private String description;
 
