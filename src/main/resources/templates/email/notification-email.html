@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">Thông báo BTON</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #1f2937;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container {
+            max-width: 600px;
+            margin: 30px auto;
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            padding: 30px;
+            text-align: center;
+            color: #ffffff;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            margin: 6px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 30px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background-color: #e0e7ff;
+            color: #4338ca;
+        }
+        .badge-warning {
+            background-color: #fef3c7;
+            color: #b45309;
+        }
+        .badge-exceeded {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+        .badge-goal {
+            background-color: #d1fae5;
+            color: #047857;
+        }
+        .greeting {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #111827;
+        }
+        .title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #111827;
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+        .message-box {
+            background-color: #f9fafb;
+            border-left: 4px solid #4f46e5;
+            padding: 16px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-size: 15px;
+            line-height: 1.6;
+            color: #374151;
+        }
+        .btn-wrapper {
+            text-align: center;
+            margin: 30px 0 10px 0;
+        }
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 15px;
+            box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
+        }
+        .footer {
+            background-color: #f9fafb;
+            padding: 20px 30px;
+            text-align: center;
+            font-size: 13px;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Budgivee (BTON)</h1>
+            <p>Hệ thống Quản lý Tài chính Thông minh</p>
+        </div>
+        <div class="content">
+            <span class="badge" th:classappend="${badgeClass}" th:text="${typeLabel}">Thông báo</span>
+            <div class="greeting" th:text="'Xin chào ' + ${recipientName} + ','">Xin chào bạn,</div>
+            <h2 class="title" th:text="${title}">Tiêu đề thông báo</h2>
+            <div class="message-box" th:text="${message}">
+                Nội dung chi tiết thông báo được gửi từ hệ thống BTON.
+            </div>
+            <div class="btn-wrapper">
+                <a th:href="${appUrl}" class="btn" target="_blank">Xem trên ứng dụng</a>
+            </div>
+        </div>
+        <div class="footer">
+            <p style="margin: 0 0 6px 0;">© <span th:text="${year}">2026</span> BTON Team. Mọi quyền được bảo lưu.</p>
+            <p style="margin: 0;">Email này được gửi tự động, vui lòng không trả lời thư này trực tiếp.</p>
+        </div>
+    </div>
+</body>
+</html>
+

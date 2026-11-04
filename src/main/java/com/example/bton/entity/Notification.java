@@ -34,7 +34,7 @@ public class Notification {
     private String message;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 50)
     private NotificationType type;
 
     @Column(name = "related_id")
@@ -47,4 +47,8 @@ public class Notification {
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    public Long getUserId() {
+        return user != null ? user.getId() : null;
+    }
 }

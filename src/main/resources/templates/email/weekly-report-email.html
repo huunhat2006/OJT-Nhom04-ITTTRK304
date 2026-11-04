@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Báo cáo tài chính tuần - BTON</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #1f2937;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container {
+            max-width: 620px;
+            margin: 30px auto;
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .header {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            padding: 30px;
+            text-align: center;
+            color: #ffffff;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .header p {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            opacity: 0.95;
+        }
+        .content {
+            padding: 30px;
+        }
+        .greeting {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #111827;
+        }
+        .intro {
+            font-size: 14px;
+            color: #4b5563;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .cards-grid {
+            margin: 20px 0;
+        }
+        .card {
+            padding: 16px 20px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+        }
+        .card-income {
+            background-color: #ecfdf5;
+            border-left: 5px solid #10b981;
+        }
+        .card-expense {
+            background-color: #fef2f2;
+            border-left: 5px solid #ef4444;
+        }
+        .card-balance {
+            background-color: #eff6ff;
+            border-left: 5px solid #3b82f6;
+        }
+        .card-label {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+        .card-value {
+            font-size: 22px;
+            font-weight: 700;
+        }
+        .val-income { color: #059669; }
+        .val-expense { color: #dc2626; }
+        .val-balance { color: #2563eb; }
+        .insights-box {
+            background-color: #f9fafb;
+            border: 1px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 18px;
+            margin: 24px 0;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #374151;
+        }
+        .btn-wrapper {
+            text-align: center;
+            margin: 30px 0 10px 0;
+        }
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 15px;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+        }
+        .footer {
+            background-color: #f9fafb;
+            padding: 20px 30px;
+            text-align: center;
+            font-size: 13px;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Báo Cáo Tài Chính Tuần</h1>
+            <p th:text="'Thời gian: ' + ${weekRange}">Thời gian: Tuần vừa qua</p>
+        </div>
+        <div class="content">
+            <div class="greeting" th:text="'Xin chào ' + ${recipientName} + ','">Xin chào bạn,</div>
+            <div class="intro">
+                Dưới đây là tổng hợp nhanh tình hình thu chi và số dư tài chính của bạn trong tuần vừa qua:
+            </div>
+
+            <div class="cards-grid">
+                <div class="card card-income">
+                    <div class="card-label">Tổng Thu Nhập</div>
+                    <div class="card-value val-income" th:text="${totalIncome}">0 VNĐ</div>
+                </div>
+
+                <div class="card card-expense">
+                    <div class="card-label">Tổng Chi Tiêu</div>
+                    <div class="card-value val-expense" th:text="${totalExpense}">0 VNĐ</div>
+                </div>
+
+                <div class="card card-balance">
+                    <div class="card-label">Số Dư Ròng Trong Tuần</div>
+                    <div class="card-value val-balance" th:text="${balance}">0 VNĐ</div>
+                </div>
+            </div>
+
+            <div class="insights-box">
+                <strong>💡 Nhận xét: </strong>
+                <span th:text="${summaryMessage}">Chi tiêu của bạn trong tuần qua được ghi nhận đầy đủ. Tiếp tục theo dõi để hoàn thành các mục tiêu tài chính!</span>
+            </div>
+
+            <div class="btn-wrapper">
+                <a th:href="${appUrl}" class="btn" target="_blank">Mở Dashboard Chi Tiết</a>
+            </div>
+        </div>
+        <div class="footer">
+            <p style="margin: 0 0 6px 0;">© <span th:text="${year}">2026</span> BTON Team. Mọi quyền được bảo lưu.</p>
+            <p style="margin: 0;">Báo cáo định kỳ gửi vào 08:00 sáng thứ Hai hàng tuần.</p>
+        </div>
+    </div>
+</body>
+</html>
+
