@@ -65,7 +65,7 @@ export default function AlertModal({ isOpen, onClose, alert }: AlertModalProps) 
         {/* Alert Details */}
         <div className="bg-gray-50 rounded-lg p-4 space-y-3">
           <h4 className="font-semibold text-gray-900 mb-3">Thông tin chi tiết</h4>
-          
+
           {alert.amount !== undefined && (
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Số tiền:</span>
@@ -121,7 +121,7 @@ export default function AlertModal({ isOpen, onClose, alert }: AlertModalProps) 
         {alert.metadata && Object.keys(alert.metadata).length > 0 && (
           <div className="bg-blue-50 rounded-lg p-4 space-y-2">
             <h4 className="font-semibold text-blue-900 mb-2">📊 Phân tích</h4>
-            
+
             {alert.metadata.currentAmount !== undefined && (
               <div className="text-sm text-blue-900">
                 Số tiền hiện tại: <span className="font-semibold">

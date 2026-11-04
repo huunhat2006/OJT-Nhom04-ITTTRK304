@@ -4,7 +4,7 @@ import {
   AlertTriangle, 
   RefreshCw, 
   CheckCircle,
-  Filter
+  Filter,
 } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
 import { SpendingAlert, SpendingAnalysisResponse, AlertSeverity, AlertType } from '../../types';

@@ -19,6 +19,21 @@ public interface RecurringTransactionRepository extends JpaRepository<RecurringT
 
     List<RecurringTransaction> findBySpaceIdOrderByCreatedAtDesc(Long spaceId);
 
+    @Query("""
+            SELECT r FROM RecurringTransaction r
+            LEFT JOIN FETCH r.category
+            WHERE r.space.id = :spaceId
+            AND r.isActive = true
+            AND r.nextRunDate IS NOT NULL
+            AND r.nextRunDate >= :fromDate
+            AND r.nextRunDate <= :toDate
+            ORDER BY r.nextRunDate ASC
+            """)
+    List<RecurringTransaction> findUpcomingRecurring(
+            @Param("spaceId") Long spaceId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
     List<RecurringTransaction> findByWalletIdOrderByCreatedAtDesc(Long walletId);
 
     List<RecurringTransaction> findByIsActiveTrueOrderByNextRunDateAsc();
