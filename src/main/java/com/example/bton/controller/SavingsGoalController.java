@@ -2,11 +2,8 @@
 package com.example.bton.controller;
 
 import com.example.bton.dto.request.SavingsGoalRequest;
-import com.example.bton.dto.request.SavingsGoalTransactionRequest;
 import com.example.bton.dto.request.UpdateSavingsAmountRequest;
-import com.example.bton.dto.response.SavingsGoalProgressResponse;
 import com.example.bton.dto.response.SavingsGoalResponse;
-import com.example.bton.dto.response.SavingsGoalSummaryResponse;
 import com.example.bton.security.UserPrincipal;
 import com.example.bton.service.impl.SavingsGoalServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,14 +35,6 @@ public class SavingsGoalController {
         return ResponseEntity.ok(savingsGoalService.getGoals(spaceId, currentUser.getId()));
     }
 
-    @GetMapping("/summary")
-    @Operation(summary = "Get savings goals summary for a space")
-    public ResponseEntity<SavingsGoalSummaryResponse> getSummary(
-            @RequestParam Long spaceId,
-            @AuthenticationPrincipal UserPrincipal currentUser) {
-        return ResponseEntity.ok(savingsGoalService.getSummary(spaceId, currentUser.getId()));
-    }
-
     @PostMapping
     @Operation(summary = "Create a savings goal")
     public ResponseEntity<SavingsGoalResponse> createGoal(
@@ -61,14 +50,6 @@ public class SavingsGoalController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(savingsGoalService.getGoalById(id, currentUser.getId()));
-    }
-
-    @GetMapping("/{id}/progress")
-    @Operation(summary = "Get savings goal progress")
-    public ResponseEntity<SavingsGoalProgressResponse> getProgress(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserPrincipal currentUser) {
-        return ResponseEntity.ok(savingsGoalService.getProgress(id, currentUser.getId()));
     }
 
     @PutMapping("/{id}")
@@ -88,24 +69,6 @@ public class SavingsGoalController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(
                 savingsGoalService.updateCurrentAmount(id, currentUser.getId(), request));
-    }
-
-    @PostMapping("/{id}/deposit")
-    @Operation(summary = "Deposit money into a savings goal")
-    public ResponseEntity<SavingsGoalResponse> deposit(
-            @PathVariable Long id,
-            @Valid @RequestBody SavingsGoalTransactionRequest request,
-            @AuthenticationPrincipal UserPrincipal currentUser) {
-        return ResponseEntity.ok(savingsGoalService.deposit(id, currentUser.getId(), request));
-    }
-
-    @PostMapping("/{id}/withdraw")
-    @Operation(summary = "Withdraw money from a savings goal")
-    public ResponseEntity<SavingsGoalResponse> withdraw(
-            @PathVariable Long id,
-            @Valid @RequestBody SavingsGoalTransactionRequest request,
-            @AuthenticationPrincipal UserPrincipal currentUser) {
-        return ResponseEntity.ok(savingsGoalService.withdraw(id, currentUser.getId(), request));
     }
 
     @PatchMapping("/{id}/cancel")
