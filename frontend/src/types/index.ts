@@ -234,3 +234,68 @@ export interface NotificationItem {
   isRead: boolean;
   createdAt: string;
 }
+
+// ============================================
+// SPENDING ALERTS - Smart Spending Warnings
+// ============================================
+
+export type AlertSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export type AlertType = 
+  | 'BUDGET_EXCEEDED'           // Chi tiêu vượt ngân sách
+  | 'BUDGET_WARNING'            // Cảnh báo sắp vượt ngân sách
+  | 'SPENDING_SPIKE'            // Chi tăng đột biến
+  | 'RAPID_SPENDING'            // Chi quá nhanh
+  | 'RECURRING_PAYMENT_DUE'     // Thanh toán định kỳ sắp đến hạn
+  | 'BUDGET_PACE_WARNING';      // Tốc độ chi tiêu không hợp lý
+
+export interface SpendingAlert {
+  alertType: AlertType;
+  severity: AlertSeverity;
+  title: string;
+  message: string;
+  amount?: number;
+  threshold?: number;
+  categoryName?: string;
+  categoryId?: number;
+  detectedAt: string;
+  metadata?: {
+    currentAmount?: number;
+    previousAmount?: number;
+    increasePercent?: number;
+    daysRemaining?: number;
+    estimatedRunOutDay?: number;
+    daysPassed?: number;
+    spentPercent?: number;
+    dayProgressPercent?: number;
+    budgetId?: number;
+    recurringTransactionId?: number;
+    dueDate?: string;
+    [key: string]: any;
+  };
+}
+
+export interface SpendingHealthScore {
+  score: number; // 0-100
+  level: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'CRITICAL';
+  message: string;
+}
+
+export interface SpendingRecommendation {
+  type: 'REDUCE_SPENDING' | 'ADJUST_BUDGET' | 'CHANGE_CATEGORY' | 'REVIEW_RECURRING';
+  title: string;
+  description: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  categoryId?: number;
+  categoryName?: string;
+}
+
+export interface SpendingAnalysisResponse {
+  alerts: SpendingAlert[];
+  healthScore?: SpendingHealthScore;
+  recommendations?: SpendingRecommendation[];
+  analysisDate: string;
+  spaceId: number;
+  month: number;
+  year: number;
+}

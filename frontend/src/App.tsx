@@ -21,6 +21,7 @@ import Family from './pages/user/Family';
 import Categories from './pages/user/Categories';
 import Reports from './pages/user/Reports';
 import Settings from './pages/user/Settings';
+import SpendingAlerts from './pages/user/SpendingAlerts';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -52,6 +53,7 @@ function App() {
             <Route path="/family" element={<Family />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/alerts" element={<SpendingAlerts />} />
             <Route path="/settings" element={<Settings />} />
 
             {/* Admin Routes */}
