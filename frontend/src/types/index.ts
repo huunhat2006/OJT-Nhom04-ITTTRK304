@@ -235,12 +235,6 @@ export interface NotificationItem {
   createdAt: string;
 }
 
-export interface UserPreferences {
-  timezone: string;
-  emailNotifications: boolean;
-  language: string;
-}
-
 // ============================================
 // SPENDING ALERTS - Smart Spending Warnings
 // ============================================

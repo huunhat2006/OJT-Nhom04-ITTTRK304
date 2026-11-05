@@ -62,7 +62,11 @@ export default function Login() {
         createdAt: '',
       }, response.data.accessToken, response.data.refreshToken);
       toast.success('Đăng nhập thành công!');
-      navigate('/');
+      if (response.data.role === 'ADMIN') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Đăng nhập thất bại');
     } finally {
