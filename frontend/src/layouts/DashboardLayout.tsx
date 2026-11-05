@@ -8,7 +8,6 @@ import {
   Target,
   BarChart3,
   Settings,
-  Bell,
   ChevronDown,
   LogOut,
   Users,
@@ -23,8 +22,7 @@ import {
 import { useAuthStore } from '../store/authStore';
 import { useSpaceStore } from '../store/spaceStore';
 import api from '../lib/axios';
-import { FinancialSpace, NotificationItem, PageResponse } from '../types';
-import { formatDateTime } from '../lib/utils';
+import { FinancialSpace } from '../types';
 
 export default function DashboardLayout() {
   const location = useLocation();
@@ -33,10 +31,7 @@ export default function DashboardLayout() {
   const { currentSpace, spaces, setSpaces, setCurrentSpace, reset } = useSpaceStore();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSpaceMenu, setShowSpaceMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [spacesReady, setSpacesReady] = useState(false);
 
   // Load accessible spaces from API and auto-select the first one
@@ -66,25 +61,6 @@ export default function DashboardLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load notifications
-  useEffect(() => {
-    const loadNotifications = async () => {
-      try {
-        const [listRes, countRes] = await Promise.all([
-          api.get<PageResponse<NotificationItem>>('/notifications?page=0&size=10'),
-          api.get<{ count: number }>('/notifications/unread-count'),
-        ]);
-        setNotifications(listRes.data.content);
-        setUnreadCount(countRes.data.count);
-      } catch {
-        // ignore
-      }
-    };
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
   const handleLogout = async () => {
     const refreshToken = useAuthStore.getState().refreshToken;
     try {
@@ -96,16 +72,6 @@ export default function DashboardLayout() {
     }
     logout();
     navigate('/login');
-  };
-
-  const handleMarkAllRead = async () => {
-    try {
-      await api.patch('/notifications/read-all');
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      setUnreadCount(0);
-    } catch {
-      // ignore
-    }
   };
 
   const userNavItems = [
@@ -246,7 +212,6 @@ export default function DashboardLayout() {
               >
                 <Menu className="w-5 h-5" />
               </button>
-              {/* Breadcrumb / page title hint */}
               <div className="hidden lg:flex items-center gap-2">
                 <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
                   {navItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
@@ -302,64 +267,6 @@ export default function DashboardLayout() {
                   )}
                 </div>
               )}
-
-              {/* Notifications */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <Bell className="w-5 h-5 text-gray-500" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
-                </button>
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/80">
-                      <div className="flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-gray-500" />
-                        <span className="font-semibold text-gray-800 text-sm">Thông báo</span>
-                        {unreadCount > 0 && (
-                          <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-xs font-semibold rounded-full">
-                            {unreadCount}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={handleMarkAllRead}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                      >
-                        Đánh dấu đã đọc
-                      </button>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
-                      {notifications.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 gap-2">
-                          <Bell className="w-8 h-8 text-gray-200" />
-                          <p className="text-sm text-gray-400">Không có thông báo</p>
-                        </div>
-                      ) : (
-                        notifications.map((n) => (
-                          <div
-                            key={n.id}
-                            className={`px-4 py-3 hover:bg-gray-50 transition-colors ${n.isRead ? '' : 'bg-indigo-50/40'}`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="text-sm font-semibold text-gray-800">{n.title}</span>
-                              {!n.isRead && <span className="w-2 h-2 bg-indigo-500 rounded-full mt-1.5 shrink-0" />}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
-                            <p className="text-[11px] text-gray-400 mt-1">{formatDateTime(n.createdAt)}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* User Menu */}
               <div className="relative">
@@ -427,7 +334,6 @@ export default function DashboardLayout() {
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-8" onClick={() => {
-          setShowNotifications(false);
           setShowSpaceMenu(false);
           setShowUserMenu(false);
         }}>
