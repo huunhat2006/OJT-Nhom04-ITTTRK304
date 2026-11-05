@@ -53,8 +53,8 @@ function App() {
 
           {/* Protected Routes */}
           <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" replace />}>
-            {/* User Routes */}
-            <Route path="/" element={user?.role === 'ADMIN' ? <Navigate to="/admin" replace /> : <Overview />} />
+            {/* User & Personal Finance Routes (accessible to both USER and ADMIN) */}
+            <Route path="/" element={<Overview />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/wallets" element={<Wallets />} />
             <Route path="/budget" element={<Budget />} />
@@ -65,7 +65,7 @@ function App() {
             <Route path="/alerts" element={<SpendingAlerts />} />
             <Route path="/settings" element={<Settings />} />
 
-            {/* Admin Routes */}
+            {/* Admin Management Routes (ADMIN only) */}
             {user?.role === 'ADMIN' && (
               <>
                 <Route path="/admin" element={<AdminDashboard />} />
