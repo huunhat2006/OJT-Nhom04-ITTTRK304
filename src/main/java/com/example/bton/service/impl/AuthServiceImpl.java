@@ -36,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 @Service
@@ -64,6 +65,10 @@ public class AuthServiceImpl implements AuthService {
             throw new DuplicateResourceException("Email '" + request.getEmail() + "' is already registered");
         }
 
+        String timezone = (request.getTimezone() != null && !request.getTimezone().isBlank())
+                ? validateTimezone(request.getTimezone())
+                : "Asia/Ho_Chi_Minh";
+
         // Create user - always assign USER role; ADMIN cannot be self-registered
         User user = User.builder()
                 .username(request.getUsername())
@@ -71,6 +76,7 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
+                .timezone(timezone)
                 .role(Role.USER)
                 .isActive(true)
                 .build();
@@ -186,6 +192,7 @@ public class AuthServiceImpl implements AuthService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
+                .timezone(user.getTimezone())
                 .role(user.getRole())
                 .build();
     }
@@ -221,10 +228,20 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(user.getFullName())
                 .phone(user.getPhone())
                 .avatarUrl(user.getAvatarUrl())
+                .timezone(user.getTimezone())
                 .role(user.getRole())
                 .isActive(user.getIsActive())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
+    }
+
+    private String validateTimezone(String timezone) {
+        try {
+            ZoneId.of(timezone);
+            return timezone;
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid timezone: " + timezone);
+        }
     }
 }

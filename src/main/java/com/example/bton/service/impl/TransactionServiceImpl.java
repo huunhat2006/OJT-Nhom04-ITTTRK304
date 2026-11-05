@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -117,6 +118,11 @@ public class TransactionServiceImpl {
         }
 
         return mapToResponse(transaction);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public TransactionResponse createTransactionRequiresNew(Long userId, TransactionRequest request) {
+        return createTransaction(userId, request);
     }
 
     @Transactional(readOnly = true)
@@ -332,6 +338,9 @@ public class TransactionServiceImpl {
                 .receiptUrl(t.getReceiptUrl())
                 .walletName(t.getWallet() != null ? t.getWallet().getName() : null)
                 .walletType(t.getWallet() != null ? t.getWallet().getWalletType().name() : null)
+                .recurringTransactionId(t.getRecurringTransaction() != null
+                        ? t.getRecurringTransaction().getId()
+                        : null)
                 .createdAt(t.getCreatedAt())
                 .updatedAt(t.getUpdatedAt())
                 .build();
