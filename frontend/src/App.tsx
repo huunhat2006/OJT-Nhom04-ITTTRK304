@@ -31,6 +31,7 @@ import AdminAuditLogs from './pages/admin/AuditLogs';
 
 function App() {
   const { isAuthenticated, user } = useAuthStore();
+  const defaultPath = user?.role === 'ADMIN' ? '/admin' : '/';
 
   return (
     <>
@@ -38,14 +39,14 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route element={<AuthLayout />}>
-            <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
-            <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
+            <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to={defaultPath} replace />} />
+            <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to={defaultPath} replace />} />
           </Route>
 
           {/* Protected Routes */}
-          <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
+          <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" replace />}>
             {/* User Routes */}
-            <Route path="/" element={<Overview />} />
+            <Route path="/" element={user?.role === 'ADMIN' ? <Navigate to="/admin" replace /> : <Overview />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/wallets" element={<Wallets />} />
             <Route path="/budget" element={<Budget />} />
@@ -68,7 +69,7 @@ function App() {
           </Route>
 
           {/* 404 */}
-          <Route path="*" element={<Navigate to="/" />} />
+          <Route path="*" element={<Navigate to={defaultPath} replace />} />
         </Routes>
       </Router>
       <Toaster position="top-right" />
