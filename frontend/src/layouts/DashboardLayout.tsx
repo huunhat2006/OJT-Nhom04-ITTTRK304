@@ -1,5 +1,5 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -8,6 +8,7 @@ import {
   Target,
   BarChart3,
   Settings,
+  Bell,
   ChevronDown,
   LogOut,
   Users,
@@ -18,11 +19,34 @@ import {
   Tags,
   Home,
   AlertTriangle,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  TrendingUp,
+  User,
+  BellOff,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useSpaceStore } from '../store/spaceStore';
 import api from '../lib/axios';
-import { FinancialSpace } from '../types';
+import { FinancialSpace, NotificationItem, PageResponse } from '../types';
+import { formatRelativeTime } from '../lib/utils';
+
+/** Map notification type → lucide icon + colour */
+function getNotificationIcon(type: string) {
+  const t = type?.toUpperCase() ?? '';
+  if (t.includes('BUDGET_EXCEEDED') || t.includes('CRITICAL'))
+    return <AlertCircle className="w-4 h-4 text-red-500" />;
+  if (t.includes('BUDGET') || t.includes('WARNING') || t.includes('SPENDING'))
+    return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+  if (t.includes('GOAL') || t.includes('COMPLETED') || t.includes('SUCCESS'))
+    return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+  if (t.includes('TRANSACTION') || t.includes('INCOME'))
+    return <TrendingUp className="w-4 h-4 text-indigo-500" />;
+  if (t.includes('SYSTEM') || t.includes('INFO'))
+    return <Info className="w-4 h-4 text-blue-500" />;
+  return <Bell className="w-4 h-4 text-gray-400" />;
+}
 
 export default function DashboardLayout() {
   const location = useLocation();
@@ -31,8 +55,12 @@ export default function DashboardLayout() {
   const { currentSpace, spaces, setSpaces, setCurrentSpace, reset } = useSpaceStore();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSpaceMenu, setShowSpaceMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [spacesReady, setSpacesReady] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   // Load accessible spaces from API and auto-select the first one
   useEffect(() => {
@@ -61,6 +89,36 @@ export default function DashboardLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load notifications + poll every 30s
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const [listRes, countRes] = await Promise.all([
+          api.get<PageResponse<NotificationItem>>('/notifications?page=0&size=10'),
+          api.get<{ count: number }>('/notifications/unread-count'),
+        ]);
+        setNotifications(listRes.data.content);
+        setUnreadCount(countRes.data.count);
+      } catch {
+        // ignore
+      }
+    };
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Close notification dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const handleLogout = async () => {
     const refreshToken = useAuthStore.getState().refreshToken;
     try {
@@ -74,6 +132,28 @@ export default function DashboardLayout() {
     navigate('/login');
   };
 
+  const handleMarkAllRead = async () => {
+    try {
+      await api.patch('/notifications/read-all');
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleMarkOneRead = async (id: number) => {
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    } catch {
+      // ignore
+    }
+  };
+
   const userNavItems = [
     { path: '/', label: 'Tổng quan', icon: LayoutDashboard },
     { path: '/transactions', label: 'Giao dịch', icon: ArrowLeftRight },
@@ -84,6 +164,7 @@ export default function DashboardLayout() {
     { path: '/family', label: 'Gia đình', icon: Home },
     { path: '/categories', label: 'Danh mục', icon: Tags },
     { path: '/reports', label: 'Báo cáo', icon: BarChart3 },
+    { path: '/notifications', label: 'Thông báo', icon: Bell },
   ];
 
   const adminNavItems = [
@@ -93,9 +174,10 @@ export default function DashboardLayout() {
     { path: '/admin/audit-logs', label: 'Audit Logs', icon: FileText },
   ];
 
-  const navItems = user?.role === 'ADMIN' && location.pathname.startsWith('/admin')
-    ? adminNavItems
-    : userNavItems;
+  const navItems =
+    user?.role === 'ADMIN' && location.pathname.startsWith('/admin')
+      ? adminNavItems
+      : userNavItems;
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -135,6 +217,7 @@ export default function DashboardLayout() {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
+              const isNotif = item.path === '/notifications';
               return (
                 <li key={item.path}>
                   <Link
@@ -152,7 +235,12 @@ export default function DashboardLayout() {
                       <Icon className="w-4.5 h-4.5" />
                     </span>
                     <span className="font-medium text-sm">{item.label}</span>
-                    {isActive && (
+                    {isNotif && unreadCount > 0 && (
+                      <span className="ml-auto min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                    {isActive && !isNotif && (
                       <span className="ml-auto w-1.5 h-1.5 rounded-full bg-violet-400" />
                     )}
                   </Link>
@@ -214,7 +302,7 @@ export default function DashboardLayout() {
               </button>
               <div className="hidden lg:flex items-center gap-2">
                 <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
-                  {navItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
+                  {navItems.find((i) => i.path === location.pathname)?.label || 'Dashboard'}
                 </span>
               </div>
             </div>
@@ -224,7 +312,11 @@ export default function DashboardLayout() {
               {spaces.length > 0 && !location.pathname.startsWith('/admin') && (
                 <div className="relative">
                   <button
-                    onClick={() => setShowSpaceMenu(!showSpaceMenu)}
+                    onClick={() => {
+                      setShowSpaceMenu(!showSpaceMenu);
+                      setShowNotifications(false);
+                      setShowUserMenu(false);
+                    }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors border border-gray-200"
                   >
                     <div className="w-5 h-5 rounded-md bg-indigo-500 flex items-center justify-center">
@@ -233,7 +325,9 @@ export default function DashboardLayout() {
                     <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">
                       {currentSpace?.name || 'Chọn không gian'}
                     </span>
-                    <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showSpaceMenu ? 'rotate-180' : ''}`} />
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showSpaceMenu ? 'rotate-180' : ''}`}
+                    />
                   </button>
                   {showSpaceMenu && (
                     <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 overflow-hidden">
@@ -268,33 +362,157 @@ export default function DashboardLayout() {
                 </div>
               )}
 
+              {/* ── Notification Bell ── */}
+              <div className="relative" ref={notifRef}>
+                <button
+                  onClick={() => {
+                    setShowNotifications(!showNotifications);
+                    setShowSpaceMenu(false);
+                    setShowUserMenu(false);
+                  }}
+                  className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  aria-label="Thông báo"
+                >
+                  <Bell className="w-5 h-5 text-gray-500" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                    {/* Dropdown header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/80">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-gray-500" />
+                        <span className="font-semibold text-gray-800 text-sm">Thông báo</span>
+                        {unreadCount > 0 && (
+                          <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-xs font-semibold rounded-full">
+                            {unreadCount}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={handleMarkAllRead}
+                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                          >
+                            Đánh dấu tất cả đã đọc
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* List */}
+                    <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
+                      {notifications.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-10 gap-2">
+                          <BellOff className="w-8 h-8 text-gray-200" />
+                          <p className="text-sm text-gray-400">Không có thông báo</p>
+                        </div>
+                      ) : (
+                        notifications.map((n) => (
+                          <button
+                            key={n.id}
+                            onClick={() => {
+                              if (!n.isRead) handleMarkOneRead(n.id);
+                            }}
+                            className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex gap-3 items-start ${n.isRead ? '' : 'bg-indigo-50/40'}`}
+                          >
+                            <div className="mt-0.5 shrink-0">{getNotificationIcon(n.type)}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="text-sm font-semibold text-gray-800 leading-snug">
+                                  {n.title}
+                                </span>
+                                {!n.isRead && (
+                                  <span className="w-2 h-2 bg-indigo-500 rounded-full mt-1.5 shrink-0" />
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
+                              <p className="text-[11px] text-gray-400 mt-1">
+                                {formatRelativeTime(n.createdAt)}
+                              </p>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="border-t border-gray-100 px-4 py-2.5 bg-gray-50/60">
+                      <Link
+                        to="/notifications"
+                        onClick={() => setShowNotifications(false)}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium w-full text-center block"
+                      >
+                        Xem tất cả thông báo →
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* User Menu */}
               <div className="relative">
                 <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  onClick={() => {
+                    setShowUserMenu(!showUserMenu);
+                    setShowNotifications(false);
+                    setShowSpaceMenu(false);
+                  }}
                   className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-indigo-200">
-                    {user?.fullName?.charAt(0) || 'U'}
-                  </div>
+                  {user?.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.fullName}
+                      className="w-8 h-8 rounded-full object-cover shadow-md shadow-indigo-200"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-indigo-200">
+                      {user?.fullName?.charAt(0) || 'U'}
+                    </div>
+                  )}
                   <span className="hidden sm:block text-sm font-medium text-gray-700 max-w-[100px] truncate">
                     {user?.fullName?.split(' ').pop()}
                   </span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-gray-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`}
+                  />
                 </button>
                 {showUserMenu && (
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-violet-50">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm">
-                          {user?.fullName?.charAt(0) || 'U'}
-                        </div>
+                        {user?.avatarUrl ? (
+                          <img
+                            src={user.avatarUrl}
+                            alt={user.fullName}
+                            className="w-9 h-9 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm">
+                            {user?.fullName?.charAt(0) || 'U'}
+                          </div>
+                        )}
                         <div>
                           <div className="font-semibold text-gray-900 text-sm">{user?.fullName}</div>
                           <div className="text-xs text-gray-500 truncate max-w-[140px]">{user?.email}</div>
                         </div>
                       </div>
                     </div>
+                    <Link
+                      to="/profile"
+                      onClick={() => setShowUserMenu(false)}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 text-sm text-gray-700 transition-colors"
+                    >
+                      <User className="w-4 h-4 text-gray-400" />
+                      Hồ sơ cá nhân
+                    </Link>
                     {user?.role === 'ADMIN' && (
                       <Link
                         to={location.pathname.startsWith('/admin') ? '/' : '/admin'}
@@ -333,10 +551,14 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8" onClick={() => {
-          setShowSpaceMenu(false);
-          setShowUserMenu(false);
-        }}>
+        <main
+          className="flex-1 overflow-y-auto p-4 lg:p-8"
+          onClick={() => {
+            setShowNotifications(false);
+            setShowSpaceMenu(false);
+            setShowUserMenu(false);
+          }}
+        >
           {spacesReady || location.pathname.startsWith('/admin') ? (
             <Outlet />
           ) : (

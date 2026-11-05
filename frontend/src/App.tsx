@@ -22,6 +22,8 @@ import Categories from './pages/user/Categories';
 import Reports from './pages/user/Reports';
 import Settings from './pages/user/Settings';
 import SpendingAlerts from './pages/user/SpendingAlerts';
+import Notifications from './pages/user/Notifications';
+import Profile from './pages/user/Profile';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -55,6 +57,8 @@ function App() {
             <Route path="/reports" element={<Reports />} />
             <Route path="/alerts" element={<SpendingAlerts />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/profile" element={<Profile />} />
 
             {/* Admin Routes */}
             {user?.role === 'ADMIN' && (
