@@ -73,3 +73,17 @@ body {
     @apply bg-primary/10 text-primary-dark;
   }
 }
+
+@layer utilities {
+  /* Focus ring visible for keyboard nav */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    @apply rounded-lg bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 dark:from-gray-700 dark:via-gray-600 dark:to-gray-700;
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+}

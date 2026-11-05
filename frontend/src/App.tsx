@@ -22,6 +22,8 @@ import Categories from './pages/user/Categories';
 import Reports from './pages/user/Reports';
 import Settings from './pages/user/Settings';
 import SpendingAlerts from './pages/user/SpendingAlerts';
+import Notifications from './pages/user/Notifications';
+import Profile from './pages/user/Profile';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -29,47 +31,54 @@ import AdminUsers from './pages/admin/Users';
 import AdminCategories from './pages/admin/Categories';
 import AdminAuditLogs from './pages/admin/AuditLogs';
 
+// Error Boundary
+import ErrorBoundary from './components/ErrorBoundary';
+
 function App() {
   const { isAuthenticated, user } = useAuthStore();
 
   return (
     <>
       <Router>
-        <Routes>
-          {/* Public Routes */}
-          <Route element={<AuthLayout />}>
-            <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
-            <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
-          </Route>
+        <ErrorBoundary>
+          <Routes>
+            {/* Public Routes */}
+            <Route element={<AuthLayout />}>
+              <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
+              <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
+            </Route>
 
-          {/* Protected Routes */}
-          <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
-            {/* User Routes */}
-            <Route path="/" element={<Overview />} />
-            <Route path="/transactions" element={<Transactions />} />
-            <Route path="/wallets" element={<Wallets />} />
-            <Route path="/budget" element={<Budget />} />
-            <Route path="/goals" element={<Goals />} />
-            <Route path="/family" element={<Family />} />
-            <Route path="/categories" element={<Categories />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/alerts" element={<SpendingAlerts />} />
-            <Route path="/settings" element={<Settings />} />
+            {/* Protected Routes */}
+            <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
+              {/* User Routes */}
+              <Route path="/" element={<ErrorBoundary><Overview /></ErrorBoundary>} />
+              <Route path="/transactions" element={<ErrorBoundary><Transactions /></ErrorBoundary>} />
+              <Route path="/wallets" element={<ErrorBoundary><Wallets /></ErrorBoundary>} />
+              <Route path="/budget" element={<ErrorBoundary><Budget /></ErrorBoundary>} />
+              <Route path="/goals" element={<ErrorBoundary><Goals /></ErrorBoundary>} />
+              <Route path="/family" element={<ErrorBoundary><Family /></ErrorBoundary>} />
+              <Route path="/categories" element={<ErrorBoundary><Categories /></ErrorBoundary>} />
+              <Route path="/reports" element={<ErrorBoundary><Reports /></ErrorBoundary>} />
+              <Route path="/alerts" element={<ErrorBoundary><SpendingAlerts /></ErrorBoundary>} />
+              <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
+              <Route path="/notifications" element={<ErrorBoundary><Notifications /></ErrorBoundary>} />
+              <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
 
-            {/* Admin Routes */}
-            {user?.role === 'ADMIN' && (
-              <>
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/users" element={<AdminUsers />} />
-                <Route path="/admin/categories" element={<AdminCategories />} />
-                <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
-              </>
-            )}
-          </Route>
+              {/* Admin Routes */}
+              {user?.role === 'ADMIN' && (
+                <>
+                  <Route path="/admin" element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
+                  <Route path="/admin/users" element={<ErrorBoundary><AdminUsers /></ErrorBoundary>} />
+                  <Route path="/admin/categories" element={<ErrorBoundary><AdminCategories /></ErrorBoundary>} />
+                  <Route path="/admin/audit-logs" element={<ErrorBoundary><AdminAuditLogs /></ErrorBoundary>} />
+                </>
+              )}
+            </Route>
 
-          {/* 404 */}
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+            {/* 404 */}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </ErrorBoundary>
       </Router>
       <Toaster position="top-right" />
     </>
