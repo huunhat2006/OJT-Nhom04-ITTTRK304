@@ -1,7 +1,9 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
+import { useThemeStore, applyTheme } from './store/themeStore';
 
 // Layouts
 import DashboardLayout from './layouts/DashboardLayout';
@@ -32,6 +34,12 @@ import AdminAuditLogs from './pages/admin/AuditLogs';
 function App() {
   const { isAuthenticated, user } = useAuthStore();
   const defaultPath = user?.role === 'ADMIN' ? '/admin' : '/';
+  const { theme } = useThemeStore();
+
+  // Apply saved theme on mount
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   return (
     <>
@@ -72,7 +80,16 @@ function App() {
           <Route path="*" element={<Navigate to={defaultPath} replace />} />
         </Routes>
       </Router>
-      <Toaster position="top-right" />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: theme === 'dark' ? '#1e293b' : '#fff',
+            color: theme === 'dark' ? '#f1f5f9' : '#1f2937',
+            border: theme === 'dark' ? '1px solid #334155' : '1px solid #e5e7eb',
+          },
+        }}
+      />
     </>
   );
 }

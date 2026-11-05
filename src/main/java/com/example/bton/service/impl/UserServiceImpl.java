@@ -4,11 +4,14 @@ package com.example.bton.service.impl;
 import com.example.bton.dto.request.UpdateProfileRequest;
 import com.example.bton.dto.response.UserResponse;
 import com.example.bton.entity.User;
+import com.example.bton.exception.BadRequestException;
 import com.example.bton.exception.ResourceNotFoundException;
 import com.example.bton.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.ZoneId;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +33,9 @@ public class UserServiceImpl {
         user.setFullName(request.getFullName());
         user.setPhone(request.getPhone());
         user.setAvatarUrl(request.getAvatarUrl());
+        if (request.getTimezone() != null) {
+            user.setTimezone(validateTimezone(request.getTimezone()));
+        }
         return mapToResponse(userRepository.save(user));
     }
 
@@ -41,10 +47,20 @@ public class UserServiceImpl {
                 .fullName(user.getFullName())
                 .phone(user.getPhone())
                 .avatarUrl(user.getAvatarUrl())
+                .timezone(user.getTimezone())
                 .role(user.getRole())
                 .isActive(user.getIsActive())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
+    }
+
+    private String validateTimezone(String timezone) {
+        try {
+            ZoneId.of(timezone);
+            return timezone;
+        } catch (Exception e) {
+            throw new BadRequestException("Invalid timezone: " + timezone);
+        }
     }
 }
