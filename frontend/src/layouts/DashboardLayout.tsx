@@ -249,7 +249,7 @@ export default function DashboardLayout() {
               {/* Breadcrumb / page title hint */}
               <div className="hidden lg:flex items-center gap-2">
                 <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
-                  {navItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
+                  {navItems.find(i => i.path === location.pathname)?.label || (user?.role === 'ADMIN' ? 'Admin Panel' : 'Dashboard')}
                 </span>
               </div>
             </div>
