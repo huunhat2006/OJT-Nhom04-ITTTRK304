@@ -2,6 +2,7 @@
 package com.example.bton.repository;
 
 import com.example.bton.entity.RecurringTransaction;
+import com.example.bton.enums.RecurringStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -39,6 +40,34 @@ public interface RecurringTransactionRepository extends JpaRepository<RecurringT
     List<RecurringTransaction> findByIsActiveTrueOrderByNextRunDateAsc();
 
     Optional<RecurringTransaction> findTopByUserIdAndIsActiveTrueOrderByNextRunDateAsc(Long userId);
+
+    @Query("""
+            SELECT r FROM RecurringTransaction r
+            JOIN FETCH r.user
+            JOIN FETCH r.space
+            LEFT JOIN FETCH r.wallet
+            LEFT JOIN FETCH r.category
+            LEFT JOIN FETCH r.templateTransaction
+            WHERE r.id = :id
+            """)
+    Optional<RecurringTransaction> findDetailedById(@Param("id") Long id);
+
+    @Query("""
+            SELECT r FROM RecurringTransaction r
+            JOIN FETCH r.user
+            JOIN FETCH r.space
+            LEFT JOIN FETCH r.wallet
+            LEFT JOIN FETCH r.category
+            WHERE r.status = :status
+            AND r.nextRunDate IS NOT NULL
+            AND r.nextRunDate <= :maxDate
+            ORDER BY r.nextRunDate ASC
+            """)
+    List<RecurringTransaction> findDue(
+            @Param("status") RecurringStatus status,
+            @Param("maxDate") LocalDate maxDate);
+
+    boolean existsByTemplateTransactionId(Long templateTransactionId);
 
     @Modifying
     @Query("""

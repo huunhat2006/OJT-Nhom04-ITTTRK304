@@ -2,6 +2,7 @@
 package com.example.bton.entity;
 
 import com.example.bton.enums.RecurringFrequency;
+import com.example.bton.enums.RecurringStatus;
 import com.example.bton.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -34,6 +35,10 @@ public class RecurringTransaction {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "space_id", nullable = false)
     private FinancialSpace space;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "template_transaction_id")
+    private Transaction templateTransaction;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id")
@@ -73,6 +78,11 @@ public class RecurringTransaction {
 
     @Column(name = "last_run_date")
     private LocalDate lastRunDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private RecurringStatus status = RecurringStatus.ACTIVE;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

@@ -6,6 +6,7 @@ import com.example.bton.enums.TransactionType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -221,6 +222,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.wallet.id = :walletId AND t.isDeleted = false")
     long countByWalletId(@Param("walletId") Long walletId);
+
+    @Modifying
+    @Query("UPDATE Transaction t SET t.recurringTransaction = null WHERE t.recurringTransaction.id = :recurringId")
+    void clearRecurringLink(@Param("recurringId") Long recurringId);
 
     @Query("""
             SELECT YEAR(t.transactionDate), MONTH(t.transactionDate), COUNT(t)

@@ -27,6 +27,7 @@ public class TransactionResponse {
     private String walletName;
     private String walletType;
     private String receiptUrl;
+    private Long recurringTransactionId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
