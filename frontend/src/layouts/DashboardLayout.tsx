@@ -39,8 +39,13 @@ export default function DashboardLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [spacesReady, setSpacesReady] = useState(false);
 
-  // Load accessible spaces from API and auto-select the first one
+  // Load accessible spaces from API and auto-select the first one (for regular users)
   useEffect(() => {
+    if (user?.role === 'ADMIN') {
+      setSpacesReady(true);
+      return;
+    }
+
     const loadSpaces = async () => {
       try {
         const { data } = await api.get<FinancialSpace[]>('/spaces');
@@ -64,7 +69,7 @@ export default function DashboardLayout() {
     };
     loadSpaces();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user?.role]);
 
   // Load notifications
   useEffect(() => {
@@ -127,7 +132,7 @@ export default function DashboardLayout() {
     { path: '/admin/audit-logs', label: 'Audit Logs', icon: FileText },
   ];
 
-  const navItems = user?.role === 'ADMIN' && location.pathname.startsWith('/admin')
+  const navItems = user?.role === 'ADMIN'
     ? adminNavItems
     : userNavItems;
 
@@ -146,12 +151,12 @@ export default function DashboardLayout() {
       >
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-white/10">
-          <div className="flex items-center gap-3">
+          <Link to={user?.role === 'ADMIN' ? '/admin' : '/'} className="flex items-center gap-3">
             <div className="w-9 h-9 bg-gradient-to-br from-violet-400 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30">
               <Wallet className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-bold text-white tracking-wide">Budgivee</span>
-          </div>
+          </Link>
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden text-white/60 hover:text-white transition-colors"
@@ -163,7 +168,7 @@ export default function DashboardLayout() {
         {/* Navigation */}
         <nav className="flex-1 px-3 py-5 overflow-y-auto">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 px-3 mb-3">
-            Menu
+            {user?.role === 'ADMIN' ? 'Admin Menu' : 'Menu'}
           </p>
           <ul className="space-y-0.5">
             {navItems.map((item) => {
@@ -249,14 +254,14 @@ export default function DashboardLayout() {
               {/* Breadcrumb / page title hint */}
               <div className="hidden lg:flex items-center gap-2">
                 <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
-                  {navItems.find(i => i.path === location.pathname)?.label || 'Dashboard'}
+                  {navItems.find(i => i.path === location.pathname)?.label || (user?.role === 'ADMIN' ? 'Admin Panel' : 'Dashboard')}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Space Selector */}
-              {spaces.length > 0 && !location.pathname.startsWith('/admin') && (
+              {/* Space Selector (only for normal users with spaces) */}
+              {spaces.length > 0 && user?.role !== 'ADMIN' && (
                 <div className="relative">
                   <button
                     onClick={() => setShowSpaceMenu(!showSpaceMenu)}
@@ -390,12 +395,12 @@ export default function DashboardLayout() {
                     </div>
                     {user?.role === 'ADMIN' && (
                       <Link
-                        to={location.pathname.startsWith('/admin') ? '/' : '/admin'}
+                        to="/admin"
                         onClick={() => setShowUserMenu(false)}
                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 text-sm text-gray-700 transition-colors"
                       >
                         <Shield className="w-4 h-4 text-indigo-500" />
-                        {location.pathname.startsWith('/admin') ? 'User Dashboard' : 'Admin Panel'}
+                        Admin Panel
                       </Link>
                     )}
                     <Link
@@ -431,7 +436,7 @@ export default function DashboardLayout() {
           setShowSpaceMenu(false);
           setShowUserMenu(false);
         }}>
-          {spacesReady || location.pathname.startsWith('/admin') ? (
+          {spacesReady || user?.role === 'ADMIN' || location.pathname.startsWith('/admin') ? (
             <Outlet />
           ) : (
             <div className="flex items-center justify-center h-96">
