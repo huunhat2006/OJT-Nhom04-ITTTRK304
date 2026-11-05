@@ -260,7 +260,7 @@ export default function DashboardLayout() {
 <span className="text-xs text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wider">
                   {navItems.find(i => i.path === location.pathname)?.label || (user?.role === 'ADMIN' ? 'Admin Panel' : 'Dashboard')}
                 </span>
-                </span>
+                
               </div>
             </div>
 
