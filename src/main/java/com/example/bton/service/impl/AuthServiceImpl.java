@@ -26,6 +26,7 @@ import com.example.bton.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -40,7 +41,6 @@ import java.time.ZoneId;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AuthServiceImpl implements AuthService {
 
@@ -51,6 +51,22 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider tokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final WalletRepository walletRepository;
+
+    public AuthServiceImpl(UserRepository userRepository,
+                           FinancialSpaceRepository spaceRepository,
+                           @Lazy PasswordEncoder passwordEncoder,
+                           @Lazy AuthenticationManager authenticationManager,
+                           JwtTokenProvider tokenProvider,
+                           RefreshTokenRepository refreshTokenRepository,
+                           WalletRepository walletRepository) {
+        this.userRepository = userRepository;
+        this.spaceRepository = spaceRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.authenticationManager = authenticationManager;
+        this.tokenProvider = tokenProvider;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.walletRepository = walletRepository;
+    }
 
     @Value("${app.jwt.refresh-expiration}")
     private long refreshExpirationMs;

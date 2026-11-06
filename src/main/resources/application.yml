@@ -1,5 +1,7 @@
 # Tác giả: Trần Hữu Nhật (Backend & DevOps Lead)
 spring:
+  main:
+    allow-circular-references: true
   application:
     name: BTON - Personal Finance Management System
   datasource:
