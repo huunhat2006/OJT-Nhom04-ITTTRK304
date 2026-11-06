@@ -1,9 +1,11 @@
 // Tác giả: Trần Hữu Nhật (Backend & DevOps Lead)
 package com.example.bton.config;
 
+import com.example.bton.security.CookieOAuth2AuthorizationRequestRepository;
 import com.example.bton.security.CustomUserDetailsService;
 import com.example.bton.security.JwtAuthenticationFilter;
 import com.example.bton.security.JwtTokenProvider;
+import com.example.bton.security.OAuth2LoginSuccessHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,6 +44,8 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final CookieOAuth2AuthorizationRequestRepository cookieRepo;
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
     @Value("${app.cors.allowed-origins:*}")
     private String allowedOrigins;
@@ -107,6 +111,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // All other requests need authentication
                         .anyRequest().authenticated())
+                .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(ep -> ep
+                                .baseUri("/api/v1/auth/oauth2/authorize")
+                                .authorizationRequestRepository(cookieRepo))
+                        .redirectionEndpoint(ep -> ep
+                                .baseUri("/api/v1/auth/oauth2/callback/*"))
+                        .successHandler(oAuth2LoginSuccessHandler))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter(),
                         UsernamePasswordAuthenticationFilter.class);

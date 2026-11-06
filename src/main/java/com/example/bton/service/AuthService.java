@@ -14,4 +14,5 @@ public interface AuthService {
     void logout(String refreshToken);
     UserResponse getCurrentUser(Long userId);
     void changePassword(Long userId, ChangePasswordRequest request);
+    AuthResponse loginWithGoogle(String email, String name, String picture, String googleId);
 }

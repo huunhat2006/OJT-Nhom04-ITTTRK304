@@ -10,6 +10,7 @@ import AuthLayout from './layouts/AuthLayout';
 // Auth Pages
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import OAuth2Callback from './pages/auth/OAuth2Callback';
 
 // User Pages
 import Overview from './pages/user/Overview';
@@ -48,6 +49,9 @@ function App() {
               <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
               <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
             </Route>
+
+            {/* OAuth2 callback — luôn public, không wrap AuthLayout */}
+            <Route path="/oauth2/callback" element={<OAuth2Callback />} />
 
             {/* Protected Routes */}
             <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" replace />}>
