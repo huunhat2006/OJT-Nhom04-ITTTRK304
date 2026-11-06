@@ -19,7 +19,6 @@ import {
   Tags,
   Home,
   AlertTriangle,
-  Search,
   RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';

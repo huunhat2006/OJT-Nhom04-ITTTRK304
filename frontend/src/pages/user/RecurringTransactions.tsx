@@ -8,7 +8,6 @@ import {
   History,
   Calendar,
   Play,
-  Pause,
   Pencil,
   Trash2,
   ChevronLeft,
@@ -37,7 +36,6 @@ import {
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
-  isSameDay,
   addDays,
   addWeeks,
   addMonths,
@@ -790,7 +788,6 @@ export default function RecurringTransactions() {
 // ── Summary Cards ──
 function SummaryCards({ items }: { items: RecurringTransaction[] }) {
   const activeCount = items.filter((i) => i.status === 'ACTIVE').length;
-  const pausedCount = items.filter((i) => i.status === 'PAUSED').length;
   const totalExpense = items
     .filter((i) => i.type === 'EXPENSE' && i.status === 'ACTIVE')
     .reduce((sum, i) => sum + i.amount, 0);
@@ -865,7 +862,6 @@ function RecurringCard({
   daysUntil: number;
 }) {
   const isActive = item.status === 'ACTIVE';
-  const isPaused = item.status === 'PAUSED';
   const canToggle = item.status === 'ACTIVE' || item.status === 'PAUSED';
 
   return (
