@@ -22,6 +22,7 @@ import Categories from './pages/user/Categories';
 import Reports from './pages/user/Reports';
 import Settings from './pages/user/Settings';
 import SpendingAlerts from './pages/user/SpendingAlerts';
+import RecurringTransactions from './pages/user/RecurringTransactions';
 import Notifications from './pages/user/Notifications';
 import Profile from './pages/user/Profile';
 
@@ -60,6 +61,7 @@ function App() {
               <Route path="/categories" element={<ErrorBoundary><Categories /></ErrorBoundary>} />
               <Route path="/reports" element={<ErrorBoundary><Reports /></ErrorBoundary>} />
               <Route path="/alerts" element={<ErrorBoundary><SpendingAlerts /></ErrorBoundary>} />
+              <Route path="/recurring" element={<ErrorBoundary><RecurringTransactions /></ErrorBoundary>} />
               <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
               <Route path="/notifications" element={<ErrorBoundary><Notifications /></ErrorBoundary>} />
               <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />

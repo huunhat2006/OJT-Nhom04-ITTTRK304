@@ -20,6 +20,7 @@ import {
   Home,
   AlertTriangle,
   Search,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useSpaceStore } from '../store/spaceStore';
@@ -138,6 +139,7 @@ export default function DashboardLayout() {
   const userNavItems = [
     { path: '/', label: 'Tổng quan', icon: LayoutDashboard },
     { path: '/transactions', label: 'Giao dịch', icon: ArrowLeftRight },
+    { path: '/recurring', label: 'Định kỳ', icon: RefreshCw },
     { path: '/wallets', label: 'Ví tiền', icon: Wallet },
     { path: '/budget', label: 'Ngân sách', icon: BarChart3 },
     { path: '/goals', label: 'Mục tiêu', icon: Target },
