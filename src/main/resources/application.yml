@@ -76,8 +76,22 @@ springdoc:
     disable-swagger-default-url: true
   packages-to-scan: com.example.bton.controller
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+    info:
+      enabled: true
+
 logging:
   level:
     com.example.bton: DEBUG
     org.springframework.security: INFO
     org.flywaydb: INFO
+
