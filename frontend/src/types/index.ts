@@ -299,3 +299,39 @@ export interface SpendingAnalysisResponse {
   month: number;
   year: number;
 }
+
+// ============================================
+// RECURRING TRANSACTIONS - Giao dịch định kỳ
+// ============================================
+
+export type RecurringFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+export type RecurringStatus = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED';
+
+export interface RecurringTransaction {
+  id: number;
+  spaceId: number;
+  walletId?: number;
+  walletName?: string;
+  category?: Category | null;
+  type: 'INCOME' | 'EXPENSE';
+  amount: number;
+  description: string;
+  frequency: RecurringFrequency;
+  startDate: string;
+  endDate?: string | null;
+  nextRunDate: string;
+  lastRunDate?: string | null;
+  status: RecurringStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RecurringTransactionLog {
+  id: number;
+  recurringTransactionId: number;
+  executedAt: string;
+  amount: number;
+  status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
+  transactionId?: number;
+  note?: string;
+}
