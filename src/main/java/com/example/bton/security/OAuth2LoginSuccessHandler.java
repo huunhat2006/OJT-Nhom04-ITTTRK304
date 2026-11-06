@@ -5,9 +5,9 @@ import com.example.bton.dto.response.AuthResponse;
 import com.example.bton.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
@@ -24,12 +24,17 @@ import java.io.IOException;
  * 4. Redirect về frontend kèm token trong query param
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     private final AuthService authService;
     private final CookieOAuth2AuthorizationRequestRepository cookieRepo;
+
+    public OAuth2LoginSuccessHandler(@Lazy AuthService authService,
+                                     CookieOAuth2AuthorizationRequestRepository cookieRepo) {
+        this.authService = authService;
+        this.cookieRepo = cookieRepo;
+    }
 
     @Value("${app.oauth2.frontend-redirect-uri:http://localhost:5173/oauth2/callback}")
     private String frontendRedirectUri;
