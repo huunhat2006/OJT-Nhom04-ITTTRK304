@@ -88,4 +88,43 @@ jacocoTestReport {
         xml.required = true
         html.required = true
     }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                'com/example/bton/dto/**',
+                'com/example/bton/entity/**',
+                'com/example/bton/enums/**',
+                'com/example/bton/config/**',
+                'com/example/bton/security/**',
+                'com/example/bton/BtonApplication.class',
+            ])
+        }))
+    }
 }
+
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                'com/example/bton/dto/**',
+                'com/example/bton/entity/**',
+                'com/example/bton/enums/**',
+                'com/example/bton/config/**',
+                'com/example/bton/security/**',
+                'com/example/bton/BtonApplication.class',
+            ])
+        }))
+    }
+    violationRules {
+        rule {
+            limit {
+                counter = 'LINE'
+                value   = 'COVEREDRATIO'
+                minimum = 0.75
+            }
+        }
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification
