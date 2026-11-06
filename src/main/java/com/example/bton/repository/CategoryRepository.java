@@ -41,4 +41,14 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     java.util.Optional<Category> findFirstByNameAndTypeAndIsSystemTrueAndIsActiveTrue(
             String name, CategoryType type);
+
+    @Query("""
+            SELECT c FROM Category c
+            WHERE c.isActive = true
+            AND (c.isSystem = true OR c.user.id = :userId)
+            AND (:keyword IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                 OR (c.nameVi IS NOT NULL AND LOWER(c.nameVi) LIKE LOWER(CONCAT('%', :keyword, '%'))))
+            ORDER BY c.isSystem DESC, c.displayOrder ASC, c.name ASC
+            """)
+    List<Category> searchAvailableForUser(@Param("userId") Long userId, @Param("keyword") String keyword);
 }
