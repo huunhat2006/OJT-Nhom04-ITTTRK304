@@ -5,18 +5,21 @@ import com.example.bton.dto.request.TransactionRequest;
 import com.example.bton.dto.response.PageResponse;
 import com.example.bton.dto.response.TransactionResponse;
 import com.example.bton.entity.*;
+import com.example.bton.enums.SpaceType;
 import com.example.bton.enums.TransactionType;
 import com.example.bton.enums.WalletType;
 import com.example.bton.exception.AccessDeniedException;
 import com.example.bton.exception.BadRequestException;
 import com.example.bton.exception.ResourceNotFoundException;
 import com.example.bton.repository.*;
+import com.example.bton.specification.TransactionSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -119,6 +122,11 @@ public class TransactionServiceImpl {
         return mapToResponse(transaction);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public TransactionResponse createTransactionRequiresNew(Long userId, TransactionRequest request) {
+        return createTransaction(userId, request);
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<TransactionResponse> getTransactions(
             Long spaceId, Long userId, TransactionType type,
@@ -132,6 +140,37 @@ public class TransactionServiceImpl {
 
         Page<Transaction> transactionPage = transactionRepository.findBySpaceWithFilters(
                 spaceId, type, categoryId, walletId, startDate, endDate, keyword, pageable);
+
+        return PageResponse.<TransactionResponse>builder()
+                .content(transactionPage.getContent().stream()
+                        .map(this::mapToResponse).collect(Collectors.toList()))
+                .pageNumber(transactionPage.getNumber())
+                .pageSize(transactionPage.getSize())
+                .totalElements(transactionPage.getTotalElements())
+                .totalPages(transactionPage.getTotalPages())
+                .first(transactionPage.isFirst())
+                .last(transactionPage.isLast())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TransactionResponse> searchTransactions(
+            Long spaceId, Long userId, String query, int page, int size) {
+
+        if (spaceId != null) {
+            spaceService.verifySpaceAccess(spaceId, userId);
+        } else {
+            spaceId = spaceRepository.findFirstByOwnerIdAndTypeAndIsActiveTrue(userId, SpaceType.PERSONAL)
+                    .map(FinancialSpace::getId)
+                    .orElse(null);
+        }
+
+        Pageable pageable = PageRequest.of(page, size,
+                Sort.by(Sort.Direction.DESC, "transactionDate", "createdAt"));
+
+        Page<Transaction> transactionPage = transactionRepository.findAll(
+                TransactionSpecification.search(spaceId, userId, query),
+                pageable);
 
         return PageResponse.<TransactionResponse>builder()
                 .content(transactionPage.getContent().stream()
@@ -332,6 +371,9 @@ public class TransactionServiceImpl {
                 .receiptUrl(t.getReceiptUrl())
                 .walletName(t.getWallet() != null ? t.getWallet().getName() : null)
                 .walletType(t.getWallet() != null ? t.getWallet().getWalletType().name() : null)
+                .recurringTransactionId(t.getRecurringTransaction() != null
+                        ? t.getRecurringTransaction().getId()
+                        : null)
                 .createdAt(t.getCreatedAt())
                 .updatedAt(t.getUpdatedAt())
                 .build();

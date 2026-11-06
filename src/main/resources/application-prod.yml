@@ -81,15 +81,19 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
 
-# Expose only health endpoint publicly (matches SecurityConfig)
+# Expose health, metrics, info endpoints
 management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,metrics,info
   endpoint:
     health:
-      show-details: never
+      show-details: when-authorized
+    metrics:
+      enabled: true
+    info:
+      enabled: true
 
 springdoc:
   api-docs:

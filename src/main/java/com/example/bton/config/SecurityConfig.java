@@ -102,7 +102,7 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html",
                                 "/api-docs/**", "/v3/api-docs/**")
                         .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/metrics", "/actuator/metrics/**", "/actuator/info").permitAll()
                         // Admin only
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // All other requests need authentication

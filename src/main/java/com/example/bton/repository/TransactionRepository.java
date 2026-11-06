@@ -5,7 +5,11 @@ import com.example.bton.entity.Transaction;
 import com.example.bton.enums.TransactionType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,11 +19,22 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Repository
-public interface TransactionRepository extends JpaRepository<Transaction, Long> {
+public interface TransactionRepository extends JpaRepository<Transaction, Long>, JpaSpecificationExecutor<Transaction> {
 
-    @Query("""
+    @Override
+    @EntityGraph(attributePaths = {"category", "wallet", "user", "space"})
+    Page<Transaction> findAll(Specification<Transaction> spec, Pageable pageable);
+
+    @Override
+    @EntityGraph(attributePaths = {"category", "wallet", "user", "space"})
+    List<Transaction> findAll(Specification<Transaction> spec);
+
+    @Query(value = """
             SELECT t FROM Transaction t
             LEFT JOIN FETCH t.category
+            LEFT JOIN FETCH t.wallet
+            JOIN FETCH t.user
+            JOIN FETCH t.space
             WHERE t.space.id = :spaceId
             AND t.isDeleted = false
             AND (:type IS NULL OR t.type = :type)
@@ -29,6 +44,17 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             AND (:endDate IS NULL OR t.transactionDate <= :endDate)
             AND (:keyword IS NULL OR LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%')))
             ORDER BY t.transactionDate DESC, t.createdAt DESC
+            """,
+            countQuery = """
+            SELECT COUNT(t) FROM Transaction t
+            WHERE t.space.id = :spaceId
+            AND t.isDeleted = false
+            AND (:type IS NULL OR t.type = :type)
+            AND (:categoryId IS NULL OR t.category.id = :categoryId)
+            AND (:walletId IS NULL OR t.wallet.id = :walletId)
+            AND (:startDate IS NULL OR t.transactionDate >= :startDate)
+            AND (:endDate IS NULL OR t.transactionDate <= :endDate)
+            AND (:keyword IS NULL OR LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%')))
             """)
     Page<Transaction> findBySpaceWithFilters(
             @Param("spaceId") Long spaceId,
@@ -104,6 +130,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("""
             SELECT t FROM Transaction t
             LEFT JOIN FETCH t.category
+            LEFT JOIN FETCH t.wallet
+            JOIN FETCH t.user
+            JOIN FETCH t.space
             WHERE t.space.id = :spaceId
             AND t.isDeleted = false
             ORDER BY t.transactionDate DESC, t.createdAt DESC
@@ -221,6 +250,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.wallet.id = :walletId AND t.isDeleted = false")
     long countByWalletId(@Param("walletId") Long walletId);
+
+    @Modifying
+    @Query("UPDATE Transaction t SET t.recurringTransaction = null WHERE t.recurringTransaction.id = :recurringId")
+    void clearRecurringLink(@Param("recurringId") Long recurringId);
 
     @Query("""
             SELECT YEAR(t.transactionDate), MONTH(t.transactionDate), COUNT(t)

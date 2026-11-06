@@ -44,6 +44,10 @@ public class User {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
+    @Column(nullable = false, length = 50)
+    @Builder.Default
+    private String timezone = "Asia/Ho_Chi_Minh";
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

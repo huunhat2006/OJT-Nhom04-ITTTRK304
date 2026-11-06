@@ -150,16 +150,20 @@ export default function DashboardLayout() {
   ];
 
   const adminNavItems = [
-    { path: '/admin', label: 'Dashboard', icon: Shield },
-    { path: '/admin/users', label: 'Users', icon: Users },
-    { path: '/admin/categories', label: 'Categories', icon: FileText },
+    { path: '/admin', label: 'Dashboard Quản trị', icon: Shield },
+    { path: '/admin/users', label: 'Người dùng', icon: Users },
+    { path: '/admin/categories', label: 'Danh mục hệ thống', icon: FileText },
     { path: '/admin/audit-logs', label: 'Audit Logs', icon: FileText },
   ];
 
+<<<<<<< HEAD
   const navItems =
     user?.role === 'ADMIN' && location.pathname.startsWith('/admin')
       ? adminNavItems
       : userNavItems;
+=======
+  const allNavItems = [...userNavItems, ...adminNavItems];
+>>>>>>> b28f11586696aea6133e3ff498c085f0465092a0
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
@@ -195,6 +199,7 @@ export default function DashboardLayout() {
         </div>
 
         {/* Navigation */}
+<<<<<<< HEAD
         <nav className="flex-1 px-3 py-5 overflow-y-auto" aria-label="Menu điều hướng">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 px-3 mb-3">
             Menu
@@ -229,6 +234,83 @@ export default function DashboardLayout() {
               );
             })}
           </ul>
+=======
+        <nav className="flex-1 px-3 py-5 overflow-y-auto space-y-5">
+          {/* Section: Tài chính cá nhân */}
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40 px-3 mb-2">
+              {user?.role === 'ADMIN' ? 'Tài chính cá nhân' : 'Menu'}
+            </p>
+            <ul className="space-y-0.5">
+              {userNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <li key={item.path}>
+                    <Link
+                      to={item.path}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`
+                        relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
+                        ${isActive
+                          ? 'bg-white/15 text-white shadow-lg shadow-black/20 before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-6 before:w-1 before:rounded-r-full before:bg-violet-400'
+                          : 'text-white/60 hover:bg-white/8 hover:text-white'
+                        }
+                      `}
+                    >
+                      <span className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${isActive ? 'bg-violet-500/40' : 'bg-transparent'}`}>
+                        <Icon className="w-4.5 h-4.5" />
+                      </span>
+                      <span className="font-medium text-sm">{item.label}</span>
+                      {isActive && (
+                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-violet-400" />
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {/* Section: Quản trị hệ thống (chỉ hiển thị khi role là ADMIN) */}
+          {user?.role === 'ADMIN' && (
+            <div className="pt-3 border-t border-white/10">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-violet-300/80 px-3 mb-2 flex items-center gap-1.5">
+                <Shield className="w-3.5 h-3.5 text-violet-400" />
+                Quản trị hệ thống
+              </p>
+              <ul className="space-y-0.5">
+                {adminNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <li key={item.path}>
+                      <Link
+                        to={item.path}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`
+                          relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
+                          ${isActive
+                            ? 'bg-white/15 text-white shadow-lg shadow-black/20 before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-6 before:w-1 before:rounded-r-full before:bg-violet-400'
+                            : 'text-white/60 hover:bg-white/8 hover:text-white'
+                          }
+                        `}
+                      >
+                        <span className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 ${isActive ? 'bg-violet-500/40' : 'bg-transparent'}`}>
+                          <Icon className="w-4.5 h-4.5" />
+                        </span>
+                        <span className="font-medium text-sm">{item.label}</span>
+                        {isActive && (
+                          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-violet-400" />
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+>>>>>>> b28f11586696aea6133e3ff498c085f0465092a0
         </nav>
 
         {/* Bottom: Settings + Logout */}
@@ -286,14 +368,22 @@ export default function DashboardLayout() {
               >
                 <Menu className="w-5 h-5" />
               </button>
+<<<<<<< HEAD
               <div className="hidden lg:flex items-center gap-2 min-w-0">
                 <span className="text-xs text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wider truncate">
                   {navItems.find((i) => i.path === location.pathname)?.label ||
                     (user?.role === 'ADMIN' ? 'Admin Panel' : 'Dashboard')}
+=======
+              {/* Breadcrumb / page title hint */}
+              <div className="hidden lg:flex items-center gap-2">
+                <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
+                  {allNavItems.find(i => i.path === location.pathname)?.label || (location.pathname.startsWith('/admin') ? 'Quản trị hệ thống' : 'Dashboard')}
+>>>>>>> b28f11586696aea6133e3ff498c085f0465092a0
                 </span>
               </div>
             </div>
 
+<<<<<<< HEAD
             {/* Centre: Search bar trigger */}
             <button
               onClick={() => setShowSearch(true)}
@@ -319,6 +409,10 @@ export default function DashboardLayout() {
               </button>
 
               {/* Space Selector */}
+=======
+            <div className="flex items-center gap-2">
+              {/* Space Selector (only on personal finance pages) */}
+>>>>>>> b28f11586696aea6133e3ff498c085f0465092a0
               {spaces.length > 0 && !location.pathname.startsWith('/admin') && (
                 <div className="relative">
                   <button
@@ -493,8 +587,13 @@ export default function DashboardLayout() {
                         onClick={() => setShowUserMenu(false)}
                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300 transition-colors focus-ring"
                       >
+<<<<<<< HEAD
                         <Shield className="w-4 h-4 text-indigo-500" aria-hidden="true" />
                         {location.pathname.startsWith('/admin') ? 'User Dashboard' : 'Admin Panel'}
+=======
+                        <Shield className="w-4 h-4 text-indigo-500" />
+                        {location.pathname.startsWith('/admin') ? 'Về Ví cá nhân' : 'Bảng điều khiển Quản trị'}
+>>>>>>> b28f11586696aea6133e3ff498c085f0465092a0
                       </Link>
                     )}
                     <Link
@@ -523,6 +622,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Page Content */}
+<<<<<<< HEAD
         <main
           className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-8"
           onClick={() => {
@@ -531,6 +631,13 @@ export default function DashboardLayout() {
             setShowUserMenu(false);
           }}
         >
+=======
+        <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-gray-50 dark:bg-gray-900 transition-colors duration-200" onClick={() => {
+          setShowNotifications(false);
+          setShowSpaceMenu(false);
+          setShowUserMenu(false);
+        }}>
+>>>>>>> b28f11586696aea6133e3ff498c085f0465092a0
           {spacesReady || location.pathname.startsWith('/admin') ? (
             <Outlet />
           ) : (

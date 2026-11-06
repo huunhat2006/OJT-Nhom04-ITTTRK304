@@ -21,13 +21,27 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 
 @RestController
-@RequestMapping("/api/v1/transactions")
+@RequestMapping({"/api/v1/transactions", "/api/transactions"})
 @RequiredArgsConstructor
 @Tag(name = "Transactions", description = "Income and expense transaction management")
 @SecurityRequirement(name = "bearerAuth")
 public class TransactionController {
 
     private final TransactionServiceImpl transactionService;
+
+    @GetMapping("/search")
+    @Operation(summary = "Search transactions by note and category name (JPA Specification)")
+    public ResponseEntity<PageResponse<TransactionResponse>> searchTransactions(
+            @RequestParam(required = false) Long spaceId,
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "keyword", required = false) String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        String searchTerm = (q != null && !q.isBlank()) ? q : keyword;
+        return ResponseEntity.ok(transactionService.searchTransactions(
+                spaceId, currentUser.getId(), searchTerm, page, size));
+    }
 
     @GetMapping
     @Operation(summary = "List transactions with filters and pagination")

@@ -50,29 +50,29 @@ function App() {
             </Route>
 
             {/* Protected Routes */}
-            <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" />}>
-              {/* User Routes */}
-              <Route path="/" element={<ErrorBoundary><Overview /></ErrorBoundary>} />
-              <Route path="/transactions" element={<ErrorBoundary><Transactions /></ErrorBoundary>} />
-              <Route path="/wallets" element={<ErrorBoundary><Wallets /></ErrorBoundary>} />
-              <Route path="/budget" element={<ErrorBoundary><Budget /></ErrorBoundary>} />
-              <Route path="/goals" element={<ErrorBoundary><Goals /></ErrorBoundary>} />
-              <Route path="/family" element={<ErrorBoundary><Family /></ErrorBoundary>} />
-              <Route path="/categories" element={<ErrorBoundary><Categories /></ErrorBoundary>} />
-              <Route path="/reports" element={<ErrorBoundary><Reports /></ErrorBoundary>} />
-              <Route path="/alerts" element={<ErrorBoundary><SpendingAlerts /></ErrorBoundary>} />
-              <Route path="/recurring" element={<ErrorBoundary><RecurringTransactions /></ErrorBoundary>} />
-              <Route path="/settings" element={<ErrorBoundary><Settings /></ErrorBoundary>} />
-              <Route path="/notifications" element={<ErrorBoundary><Notifications /></ErrorBoundary>} />
-              <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
+            <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" replace />}>
+              {/* User & Personal Finance Routes (accessible to both USER and ADMIN) */}
+              <Route path="/" element={<Overview />} />
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/recurring" element={<RecurringTransactions />} />
+              <Route path="/wallets" element={<Wallets />} />
+              <Route path="/budget" element={<Budget />} />
+              <Route path="/goals" element={<Goals />} />
+              <Route path="/family" element={<Family />} />
+              <Route path="/categories" element={<Categories />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/alerts" element={<SpendingAlerts />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/profile" element={<Profile />} />
 
-              {/* Admin Routes */}
+              {/* Admin Management Routes (ADMIN only) */}
               {user?.role === 'ADMIN' && (
                 <>
-                  <Route path="/admin" element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
-                  <Route path="/admin/users" element={<ErrorBoundary><AdminUsers /></ErrorBoundary>} />
-                  <Route path="/admin/categories" element={<ErrorBoundary><AdminCategories /></ErrorBoundary>} />
-                  <Route path="/admin/audit-logs" element={<ErrorBoundary><AdminAuditLogs /></ErrorBoundary>} />
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/users" element={<AdminUsers />} />
+                  <Route path="/admin/categories" element={<AdminCategories />} />
+                  <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
                 </>
               )}
             </Route>
