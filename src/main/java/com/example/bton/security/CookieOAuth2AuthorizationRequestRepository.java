@@ -26,7 +26,13 @@ public class CookieOAuth2AuthorizationRequestRepository
     @Override
     public OAuth2AuthorizationRequest loadAuthorizationRequest(HttpServletRequest request) {
         return getCookieValue(request, OAUTH2_REQUEST_COOKIE)
-                .map(v -> (OAuth2AuthorizationRequest) deserialize(v))
+                .map(v -> {
+                    try {
+                        return (OAuth2AuthorizationRequest) deserialize(v);
+                    } catch (Exception e) {
+                        return null;
+                    }
+                })
                 .orElse(null);
     }
 

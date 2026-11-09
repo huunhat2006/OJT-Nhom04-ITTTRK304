@@ -57,10 +57,11 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                 .getCookieValue(request, CookieOAuth2AuthorizationRequestRepository.REDIRECT_URI_COOKIE)
                 .orElse(frontendRedirectUri);
 
-        // Xóa cookie sau khi dùng
-        cookieRepo.removeAuthorizationRequest(request, response);
-        CookieOAuth2AuthorizationRequestRepository.getCookieValue(
-                request, CookieOAuth2AuthorizationRequestRepository.REDIRECT_URI_COOKIE);
+        // Xóa cookie sau khi dùng (bọc try-catch an toàn)
+        try {
+            cookieRepo.removeAuthorizationRequest(request, response);
+        } catch (Exception ignored) {
+        }
 
         try {
             AuthResponse authResponse = authService.loginWithGoogle(email, name, picture, googleId);
