@@ -15,4 +15,6 @@ public interface AuthService {
     UserResponse getCurrentUser(Long userId);
     void changePassword(Long userId, ChangePasswordRequest request);
     AuthResponse loginWithGoogle(String email, String name, String picture, String googleId);
+    com.example.bton.entity.User findOrCreateGoogleUser(String email, String name, String picture, String googleId);
+    AuthResponse generateAuthResponseForUser(Long userId);
 }

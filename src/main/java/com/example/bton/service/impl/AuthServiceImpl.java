@@ -269,11 +269,10 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     @Transactional
-    public AuthResponse loginWithGoogle(String email, String name, String picture, String googleId) {
+    public User findOrCreateGoogleUser(String email, String name, String picture, String googleId) {
         User user = userRepository.findByEmail(email.toLowerCase()).orElse(null);
 
         if (user == null) {
-            // Tạo username từ email (phần trước @), đảm bảo unique
             String baseUsername = email.split("@")[0].replaceAll("[^a-zA-Z0-9._]", "_");
             String username = baseUsername;
             int suffix = 1;
@@ -318,7 +317,6 @@ public class AuthServiceImpl implements AuthService {
 
             log.info("New user created via Google OAuth2: {} ({})", user.getUsername(), user.getEmail());
         } else {
-            // Cập nhật avatar nếu có và account vẫn active
             if (!user.getIsActive()) {
                 throw new BadRequestException("Tài khoản đã bị vô hiệu hóa");
             }
@@ -328,7 +326,22 @@ public class AuthServiceImpl implements AuthService {
             }
             log.info("Existing user logged in via Google OAuth2: {}", user.getEmail());
         }
+        return user;
+    }
 
+    @Override
+    @Transactional
+    public AuthResponse generateAuthResponseForUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        String accessToken = tokenProvider.generateTokenFromUserId(user.getId());
+        return buildAuthResponse(user, accessToken);
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse loginWithGoogle(String email, String name, String picture, String googleId) {
+        User user = findOrCreateGoogleUser(email, name, picture, googleId);
         String accessToken = tokenProvider.generateTokenFromUserId(user.getId());
         return buildAuthResponse(user, accessToken);
     }

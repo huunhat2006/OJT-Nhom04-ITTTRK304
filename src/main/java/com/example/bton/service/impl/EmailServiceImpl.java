@@ -108,6 +108,38 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    @Async
+    public void sendLoginOtpEmail(String to, String recipientName, String otpCode) {
+        if (!isMailConfigured(to)) {
+            log.warn("[DEV MODE / NO MAIL SENDER] OTP cho {}: {}", to, otpCode);
+            return;
+        }
+
+        try {
+            Context context = new Context();
+            context.setVariable("recipientName", (recipientName != null && !recipientName.isBlank()) ? recipientName : "Quý khách");
+            context.setVariable("otpCode", otpCode);
+            context.setVariable("year", Year.now().getValue());
+
+            String htmlContent = templateEngine.process("email/otp-email", context);
+
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
+
+            String sender = (fromEmail != null && !fromEmail.isBlank()) ? fromEmail : "no-reply@budgivee.online";
+            helper.setFrom(sender, "BTON Finance");
+            helper.setTo(to);
+            helper.setSubject("BTON - Mã OTP xác thực đăng nhập Google: " + otpCode);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(mimeMessage);
+            log.info("Sent login OTP email successfully to {}", to);
+        } catch (Exception e) {
+            log.error("Failed to send login OTP email to {}: {}", to, e.getMessage());
+        }
+    }
+
     private boolean isMailConfigured(String to) {
         if (mailSender == null) {
             log.debug("JavaMailSender bean is not configured, skipping email delivery to {}", to);

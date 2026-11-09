@@ -28,6 +28,30 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final com.example.bton.service.OtpService otpService;
+
+    @PostMapping("/verify-otp")
+    @Operation(summary = "Verify OTP for Google login")
+    public ResponseEntity<AuthResponse> verifyOtp(@RequestBody Map<String, String> body) {
+        String sessionId = body.get("sessionId");
+        String otpCode = body.get("otp");
+        Long userId = otpService.verifyOtp(sessionId, otpCode);
+        if (userId == null) {
+            throw new com.example.bton.exception.BadRequestException("Mã OTP không chính xác hoặc đã hết hạn");
+        }
+        return ResponseEntity.ok(authService.generateAuthResponseForUser(userId));
+    }
+
+    @PostMapping("/resend-otp")
+    @Operation(summary = "Resend OTP for Google login")
+    public ResponseEntity<Map<String, String>> resendOtp(@RequestBody Map<String, String> body) {
+        String sessionId = body.get("sessionId");
+        boolean sent = otpService.resendOtp(sessionId);
+        if (!sent) {
+            throw new com.example.bton.exception.BadRequestException("Phiên xác thực không hợp lệ");
+        }
+        return ResponseEntity.ok(Map.of("message", "Mã OTP mới đã được gửi"));
+    }
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user account")

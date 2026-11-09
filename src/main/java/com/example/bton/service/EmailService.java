@@ -18,5 +18,10 @@ public interface EmailService {
     void sendWeeklyReportEmail(String to, String recipientName, String weekRange,
                                BigDecimal totalIncome, BigDecimal totalExpense, BigDecimal balance,
                                String summaryMessage);
+
+    /**
+     * Send login OTP email asynchronously.
+     */
+    void sendLoginOtpEmail(String to, String recipientName, String otpCode);
 }
 

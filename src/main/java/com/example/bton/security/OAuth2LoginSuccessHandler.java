@@ -29,11 +29,14 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
     private final AuthService authService;
     private final CookieOAuth2AuthorizationRequestRepository cookieRepo;
+    private final com.example.bton.service.OtpService otpService;
 
     public OAuth2LoginSuccessHandler(@Lazy AuthService authService,
-                                     CookieOAuth2AuthorizationRequestRepository cookieRepo) {
+                                     CookieOAuth2AuthorizationRequestRepository cookieRepo,
+                                     com.example.bton.service.OtpService otpService) {
         this.authService = authService;
         this.cookieRepo = cookieRepo;
+        this.otpService = otpService;
     }
 
     @Value("${app.oauth2.frontend-redirect-uri:http://localhost:5173/oauth2/callback}")
@@ -64,11 +67,18 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         }
 
         try {
-            AuthResponse authResponse = authService.loginWithGoogle(email, name, picture, googleId);
+            // 1. Tìm hoặc tạo user với avatar từ Google
+            com.example.bton.entity.User user = authService.findOrCreateGoogleUser(email, name, picture, googleId);
 
+            // 2. Tạo mã OTP gửi về email người dùng
+            String otpSessionId = otpService.generateAndSendOtp(user.getId(), user.getEmail(), user.getFullName());
+
+            // 3. Chuyển hướng về trang OTP verification trên frontend
             String redirectUrl = UriComponentsBuilder.fromUriString(targetUrl)
-                    .queryParam("token", authResponse.getAccessToken())
-                    .queryParam("refreshToken", authResponse.getRefreshToken())
+                    .replacePath("/oauth2/callback")
+                    .queryParam("otpRequired", "true")
+                    .queryParam("sessionId", otpSessionId)
+                    .queryParam("email", email)
                     .build().toUriString();
 
             getRedirectStrategy().sendRedirect(request, response, redirectUrl);
