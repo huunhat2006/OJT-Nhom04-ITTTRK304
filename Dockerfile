@@ -12,14 +12,15 @@ WORKDIR /workspace
 # Copy Gradle wrapper and dependency manifests first (cache layer)
 COPY gradlew gradlew.bat ./
 COPY gradle/ gradle/
-COPY build.gradle settings.gradle ./
+COPY build.gradle settings.gradle gradle.properties ./
 
 # Download dependencies (cached unless build files change)
-RUN chmod +x gradlew && ./gradlew dependencies --no-daemon -q || true
+RUN chmod +x gradlew && \
+    GRADLE_OPTS="-Xmx512m -Xms256m" ./gradlew dependencies --no-daemon -q || true
 
 # Copy source and build the fat jar
 COPY src/ src/
-RUN ./gradlew bootJar --no-daemon -x test
+RUN GRADLE_OPTS="-Xmx512m -Xms256m" ./gradlew bootJar --no-daemon -x test --stacktrace
 
 # ── Stage 2: Runtime ──────────────────────────────────────────
 FROM eclipse-temurin:21-jre-alpine AS runtime
