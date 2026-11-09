@@ -134,29 +134,21 @@ jobs:
             fi
 
             # Đồng bộ Google OAuth2 credentials vào .env
-            if [ -n "$GOOGLE_CLIENT_ID" ]; then
-              if grep -q "GOOGLE_CLIENT_ID" .env; then
-                sed -i "s|GOOGLE_CLIENT_ID=.*|GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}|g" .env
-              else
-                echo "GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}" >> .env
+            update_env_var() {
+              local key=$1
+              local val=$2
+              if [ -n "$val" ]; then
+                if grep -q "^${key}=" .env; then
+                  sed -i "/^${key}=/c\\${key}=${val}" .env
+                else
+                  echo "${key}=${val}" >> .env
+                fi
               fi
-            fi
+            }
 
-            if [ -n "$GOOGLE_CLIENT_SECRET" ]; then
-              if grep -q "GOOGLE_CLIENT_SECRET" .env; then
-                sed -i "s|GOOGLE_CLIENT_SECRET=.*|GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}|g" .env
-              else
-                echo "GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}" >> .env
-              fi
-            fi
-
-            if [ -n "$OAUTH2_REDIRECT_URI" ]; then
-              if grep -q "OAUTH2_REDIRECT_URI" .env; then
-                sed -i "s|OAUTH2_REDIRECT_URI=.*|OAUTH2_REDIRECT_URI=${OAUTH2_REDIRECT_URI}|g" .env
-              else
-                echo "OAUTH2_REDIRECT_URI=${OAUTH2_REDIRECT_URI}" >> .env
-              fi
-            fi
+            update_env_var "GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_ID"
+            update_env_var "GOOGLE_CLIENT_SECRET" "$GOOGLE_CLIENT_SECRET"
+            update_env_var "OAUTH2_REDIRECT_URI" "$OAUTH2_REDIRECT_URI"
 
             # Đăng nhập Docker Hub trên VPS để kéo được image private và tránh rate-limit
             if [ -n "$DOCKER_USERNAME" ] && [ -n "$DOCKER_PASSWORD" ]; then
