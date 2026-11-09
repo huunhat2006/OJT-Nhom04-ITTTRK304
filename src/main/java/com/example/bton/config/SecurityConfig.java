@@ -127,7 +127,12 @@ public class SecurityConfig {
                                 .authorizationRequestRepository(cookieRepo))
                         .redirectionEndpoint(ep -> ep
                                 .baseUri("/api/v1/auth/oauth2/callback/*"))
-                        .successHandler(oAuth2LoginSuccessHandler))
+                        .successHandler(oAuth2LoginSuccessHandler)
+                        .failureHandler((request, response, exception) -> {
+                            org.slf4j.LoggerFactory.getLogger(SecurityConfig.class)
+                                    .error("OAuth2 authentication failure: ", exception);
+                            response.sendRedirect("https://budgivee.online/login?error=oauth2_failure");
+                        }))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter(),
                         UsernamePasswordAuthenticationFilter.class);

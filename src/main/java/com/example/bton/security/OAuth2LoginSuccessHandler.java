@@ -72,7 +72,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
             getRedirectStrategy().sendRedirect(request, response, redirectUrl);
         } catch (Exception e) {
-            log.error("OAuth2 login failed: {}", e.getMessage());
+            log.error("OAuth2 login failed: ", e);
             String errorUrl = UriComponentsBuilder.fromUriString(targetUrl)
                     .queryParam("error", "oauth2_failed")
                     .build().toUriString();
