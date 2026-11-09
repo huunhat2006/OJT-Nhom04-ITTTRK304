@@ -128,6 +128,11 @@ jobs:
               sed -i "s/replace_with_a_long_random_secret_at_least_256_bits_long/$(openssl rand -hex 32)/g" .env
             fi
 
+            # Dọn dẹp các dòng rác hoặc lỗi cú pháp trong .env cũ nếu có
+            if [ -f .env ]; then
+              sed -i '/^[[:space:]]*[^#[:space:]]/ { /=/!d }' .env 2>/dev/null || true
+            fi
+
             # Đồng bộ cấu hình CORS_ALLOWED_ORIGINS trong .env (hỗ trợ budgivee.online)
             if grep -q "CORS_ALLOWED_ORIGINS" .env; then
               sed -i 's|CORS_ALLOWED_ORIGINS=.*|CORS_ALLOWED_ORIGINS=*|g' .env
@@ -135,10 +140,16 @@ jobs:
               echo "CORS_ALLOWED_ORIGINS=*" >> .env
             fi
 
-            # Đồng bộ Google OAuth2 credentials vào .env
+            # Đồng bộ các biến cấu hình vào .env an toàn
             update_env_var() {
-              local key=$1
-              local val=$2
+              local key="$1"
+              local val="$2"
+              # Xóa ký tự xuống dòng CR / LF nếu có
+              val=$(printf '%s' "$val" | tr -d '\r\n')
+              # Đối với mật khẩu ứng dụng Gmail, tự động loại bỏ khoảng trắng thừa
+              if [ "$key" = "SPRING_MAIL_PASSWORD" ]; then
+                val=$(printf '%s' "$val" | tr -d ' ')
+              fi
               if [ -n "$val" ]; then
                 if grep -q "^${key}=" .env; then
                   sed -i "/^${key}=/c\\${key}=${val}" .env
@@ -164,10 +175,11 @@ jobs:
             echo "==> Khởi động hạ tầng cơ sở dữ liệu (MySQL 8)..."
             docker compose up -d mysql
 
-            # Đọc các biến từ .env để kiểm tra kết nối MySQL
-            set -a
-            . ./.env
-            set +a
+            # Đọc an toàn các biến MySQL từ .env mà không source toàn bộ file
+            MYSQL_ROOT_PASSWORD=$(grep "^MYSQL_ROOT_PASSWORD=" .env | cut -d '=' -f2- | tr -d '"\r ')
+            MYSQL_USER=$(grep "^MYSQL_USER=" .env | cut -d '=' -f2- | tr -d '"\r ')
+            MYSQL_PASSWORD=$(grep "^MYSQL_PASSWORD=" .env | cut -d '=' -f2- | tr -d '"\r ')
+            MYSQL_DATABASE=$(grep "^MYSQL_DATABASE=" .env | cut -d '=' -f2- | tr -d '"\r ')
 
             # Kiểm tra xem MySQL có kết nối được không
             echo "==> Kiểm tra kết nối MySQL root..."
