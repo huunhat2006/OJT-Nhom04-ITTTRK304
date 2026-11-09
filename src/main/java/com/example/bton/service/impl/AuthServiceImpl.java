@@ -26,6 +26,7 @@ import com.example.bton.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -40,7 +41,6 @@ import java.time.ZoneId;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AuthServiceImpl implements AuthService {
 
@@ -51,6 +51,22 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider tokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final WalletRepository walletRepository;
+
+    public AuthServiceImpl(UserRepository userRepository,
+                           FinancialSpaceRepository spaceRepository,
+                           @Lazy PasswordEncoder passwordEncoder,
+                           @Lazy AuthenticationManager authenticationManager,
+                           JwtTokenProvider tokenProvider,
+                           RefreshTokenRepository refreshTokenRepository,
+                           WalletRepository walletRepository) {
+        this.userRepository = userRepository;
+        this.spaceRepository = spaceRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.authenticationManager = authenticationManager;
+        this.tokenProvider = tokenProvider;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.walletRepository = walletRepository;
+    }
 
     @Value("${app.jwt.refresh-expiration}")
     private long refreshExpirationMs;
@@ -243,5 +259,77 @@ public class AuthServiceImpl implements AuthService {
         } catch (Exception e) {
             throw new BadRequestException("Invalid timezone: " + timezone);
         }
+    }
+
+    /**
+     * Tìm hoặc tạo user từ Google OAuth2 (upsert pattern).
+     * - Nếu email đã tồn tại: cập nhật avatar, đảm bảo account active, trả token.
+     * - Nếu chưa có: tạo user mới với random password (không dùng được để login thường),
+     *   auto-tạo personal space + ví mặc định.
+     */
+    @Override
+    @Transactional
+    public AuthResponse loginWithGoogle(String email, String name, String picture, String googleId) {
+        User user = userRepository.findByEmail(email.toLowerCase()).orElse(null);
+
+        if (user == null) {
+            // Tạo username từ email (phần trước @), đảm bảo unique
+            String baseUsername = email.split("@")[0].replaceAll("[^a-zA-Z0-9._]", "_");
+            String username = baseUsername;
+            int suffix = 1;
+            while (userRepository.existsByUsername(username)) {
+                username = baseUsername + suffix++;
+            }
+
+            user = User.builder()
+                    .username(username)
+                    .email(email.toLowerCase())
+                    .passwordHash(passwordEncoder.encode(java.util.UUID.randomUUID().toString()))
+                    .fullName(name != null ? name : username)
+                    .avatarUrl(picture)
+                    .timezone("Asia/Ho_Chi_Minh")
+                    .role(Role.USER)
+                    .isActive(true)
+                    .build();
+            user = userRepository.save(user);
+
+            // Auto-tạo personal space
+            FinancialSpace personalSpace = FinancialSpace.builder()
+                    .name("Tài chính cá nhân")
+                    .description("Không gian tài chính cá nhân của " + user.getFullName())
+                    .type(SpaceType.PERSONAL)
+                    .currency("VND")
+                    .owner(user)
+                    .isActive(true)
+                    .build();
+            personalSpace = spaceRepository.save(personalSpace);
+
+            // Auto-tạo ví mặc định
+            walletRepository.save(Wallet.builder()
+                    .user(user)
+                    .space(personalSpace)
+                    .name("Tiền mặt")
+                    .walletType(WalletType.CASH)
+                    .currency("VND")
+                    .balance(java.math.BigDecimal.ZERO)
+                    .isShared(false)
+                    .isActive(true)
+                    .build());
+
+            log.info("New user created via Google OAuth2: {} ({})", user.getUsername(), user.getEmail());
+        } else {
+            // Cập nhật avatar nếu có và account vẫn active
+            if (!user.getIsActive()) {
+                throw new BadRequestException("Tài khoản đã bị vô hiệu hóa");
+            }
+            if (picture != null && !picture.equals(user.getAvatarUrl())) {
+                user.setAvatarUrl(picture);
+                userRepository.save(user);
+            }
+            log.info("Existing user logged in via Google OAuth2: {}", user.getEmail());
+        }
+
+        String accessToken = tokenProvider.generateTokenFromUserId(user.getId());
+        return buildAuthResponse(user, accessToken);
     }
 }
