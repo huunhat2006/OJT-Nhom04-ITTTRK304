@@ -71,6 +71,7 @@ public class CookieOAuth2AuthorizationRequestRepository
         Cookie cookie = new Cookie(name, value);
         cookie.setPath("/");
         cookie.setHttpOnly(true);
+        cookie.setSecure(true);
         cookie.setMaxAge(maxAge);
         response.addCookie(cookie);
     }
@@ -81,6 +82,8 @@ public class CookieOAuth2AuthorizationRequestRepository
                 if (name.equals(cookie.getName())) {
                     cookie.setValue("");
                     cookie.setPath("/");
+                    cookie.setHttpOnly(true);
+                    cookie.setSecure(true);
                     cookie.setMaxAge(0);
                     response.addCookie(cookie);
                 }

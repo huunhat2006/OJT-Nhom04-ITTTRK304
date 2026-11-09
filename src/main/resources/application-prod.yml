@@ -79,9 +79,9 @@ server:
     mime-types: application/json,application/xml,text/html,text/plain
     min-response-size: 1024
   error:
-    include-message: never        # hide internal messages from clients
-    include-binding-errors: never
-    include-stacktrace: never
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: always
 
 app:
   jwt:
