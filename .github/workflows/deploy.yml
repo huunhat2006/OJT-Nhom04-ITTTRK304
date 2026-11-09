@@ -39,6 +39,8 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/bton-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            GRADLE_VERSION=8.12
 
   # 2. Build & Push Frontend song song
   build-frontend:
