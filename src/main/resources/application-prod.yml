@@ -91,7 +91,7 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
   oauth2:
-    frontend-redirect-uri: ${OAUTH2_REDIRECT_URI:https://budgivee.online/oauth2/callback}
+    frontend-redirect-uri: "https://budgivee.online/oauth2/callback"
 
 # Expose health, metrics, info endpoints
 management:

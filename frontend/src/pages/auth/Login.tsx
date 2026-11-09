@@ -1,5 +1,5 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Wallet, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -12,6 +12,18 @@ export default function Login() {
   const login = useAuthStore((state) => state.login);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    if (error) {
+      if (error === 'oauth2_failure' || error === 'oauth2_failed') {
+        toast.error('Đăng nhập Google thất bại. Vui lòng thử lại.');
+      } else {
+        toast.error(`Đăng nhập thất bại: ${error}`);
+      }
+    }
+  }, []);
   const [formData, setFormData] = useState({
     usernameOrEmail: '',
     password: '',

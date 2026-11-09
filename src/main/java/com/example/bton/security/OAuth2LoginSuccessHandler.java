@@ -55,10 +55,14 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
         log.info("OAuth2 login success: email={}", email);
 
-        // Tìm redirect URI từ cookie (nếu frontend truyền redirect_uri param)
-        String targetUrl = CookieOAuth2AuthorizationRequestRepository
+        // Xác định base frontend redirect URL chuẩn xác (loại bỏ :80 nếu có)
+        String baseFrontendUrl = CookieOAuth2AuthorizationRequestRepository
                 .getCookieValue(request, CookieOAuth2AuthorizationRequestRepository.REDIRECT_URI_COOKIE)
-                .orElse(frontendRedirectUri);
+                .orElse(frontendRedirectUri != null && !frontendRedirectUri.isBlank() ? frontendRedirectUri : "https://budgivee.online/oauth2/callback");
+
+        if (baseFrontendUrl.contains(":80/")) {
+            baseFrontendUrl = baseFrontendUrl.replace(":80/", "/");
+        }
 
         // Xóa cookie sau khi dùng (bọc try-catch an toàn)
         try {
@@ -74,7 +78,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             String otpSessionId = otpService.generateAndSendOtp(user.getId(), user.getEmail(), user.getFullName());
 
             // 3. Chuyển hướng về trang OTP verification trên frontend
-            String redirectUrl = UriComponentsBuilder.fromUriString(targetUrl)
+            String redirectUrl = UriComponentsBuilder.fromUriString(baseFrontendUrl)
                     .replacePath("/oauth2/callback")
                     .queryParam("otpRequired", "true")
                     .queryParam("sessionId", otpSessionId)
@@ -84,8 +88,10 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             getRedirectStrategy().sendRedirect(request, response, redirectUrl);
         } catch (Exception e) {
             log.error("OAuth2 login failed: ", e);
-            String errorUrl = UriComponentsBuilder.fromUriString(targetUrl)
-                    .queryParam("error", "oauth2_failed")
+            String msg = e.getMessage() != null ? e.getMessage() : "oauth2_failed";
+            String errorUrl = UriComponentsBuilder.fromUriString(baseFrontendUrl)
+                    .replacePath("/oauth2/callback")
+                    .queryParam("error", msg)
                     .build().toUriString();
             getRedirectStrategy().sendRedirect(request, response, errorUrl);
         }

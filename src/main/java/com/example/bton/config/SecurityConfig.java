@@ -131,7 +131,10 @@ public class SecurityConfig {
                         .failureHandler((request, response, exception) -> {
                             org.slf4j.LoggerFactory.getLogger(SecurityConfig.class)
                                     .error("OAuth2 authentication failure: ", exception);
-                            response.sendRedirect("https://budgivee.online/login?error=oauth2_failure");
+                            String msg = exception.getMessage() != null 
+                                    ? java.net.URLEncoder.encode(exception.getMessage(), java.nio.charset.StandardCharsets.UTF_8) 
+                                    : "oauth2_failure";
+                            response.sendRedirect("https://budgivee.online/login?error=" + msg);
                         }))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter(),
