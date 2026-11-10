@@ -75,8 +75,10 @@ public class AdminController {
             @Valid @RequestBody CategoryRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         CategoryResponse response = categoryService.adminCreateCategory(request);
-        adminService.saveAuditLog(currentUser.getId(), "CREATE_CATEGORY", "Category",
-                response.getId(), "Created system category: " + request.getName());
+        if (currentUser != null && currentUser.getId() != null) {
+            adminService.saveAuditLog(currentUser.getId(), "CREATE_CATEGORY", "Category",
+                    response.getId(), "Created system category: " + request.getName());
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -87,8 +89,10 @@ public class AdminController {
             @Valid @RequestBody CategoryRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         CategoryResponse response = categoryService.adminUpdateCategory(id, request);
-        adminService.saveAuditLog(currentUser.getId(), "UPDATE_CATEGORY", "Category",
-                id, "Updated category: " + request.getName());
+        if (currentUser != null && currentUser.getId() != null) {
+            adminService.saveAuditLog(currentUser.getId(), "UPDATE_CATEGORY", "Category",
+                    id, "Updated category: " + request.getName());
+        }
         return ResponseEntity.ok(response);
     }
 
@@ -98,8 +102,10 @@ public class AdminController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         categoryService.adminToggleCategory(id);
-        adminService.saveAuditLog(currentUser.getId(), "TOGGLE_CATEGORY", "Category",
-                id, "Toggled category status");
+        if (currentUser != null && currentUser.getId() != null) {
+            adminService.saveAuditLog(currentUser.getId(), "TOGGLE_CATEGORY", "Category",
+                    id, "Toggled category status");
+        }
         return ResponseEntity.ok().build();
     }
 
