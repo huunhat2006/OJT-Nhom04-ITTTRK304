@@ -39,7 +39,7 @@ public class CategoryServiceImpl {
 
     @Transactional(readOnly = true)
     public List<CategoryResponse> getSystemCategories() {
-        return categoryRepository.findByIsSystemTrueAndIsActiveTrue()
+        return categoryRepository.findByIsSystemTrue()
                 .stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
@@ -108,21 +108,24 @@ public class CategoryServiceImpl {
     public CategoryResponse adminUpdateCategory(Long categoryId, CategoryRequest request) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
-        category.setName(request.getName());
-        if (request.getNameVi() != null) category.setNameVi(request.getNameVi());
-        if (request.getIcon() != null) category.setIcon(request.getIcon());
-        if (request.getColor() != null) category.setColor(request.getColor());
+        category.setName(request.getName().trim());
+        if (request.getNameVi() != null) category.setNameVi(request.getNameVi().trim());
+        if (request.getType() != null) category.setType(request.getType());
+        if (request.getIcon() != null) category.setIcon(request.getIcon().trim());
+        if (request.getColor() != null && !request.getColor().isBlank()) {
+            category.setColor(request.getColor().trim());
+        }
         return mapToResponse(categoryRepository.save(category));
     }
 
     @Transactional
     public CategoryResponse adminCreateCategory(CategoryRequest request) {
         Category category = Category.builder()
-                .name(request.getName())
-                .nameVi(request.getNameVi())
+                .name(request.getName().trim())
+                .nameVi(request.getNameVi() != null && !request.getNameVi().isBlank() ? request.getNameVi().trim() : null)
                 .type(request.getType())
-                .icon(request.getIcon())
-                .color(request.getColor())
+                .icon(request.getIcon() != null && !request.getIcon().isBlank() ? request.getIcon().trim() : null)
+                .color(request.getColor() != null && !request.getColor().isBlank() ? request.getColor().trim() : "#5B4FFF")
                 .isSystem(true)
                 .isActive(true)
                 .displayOrder(100)
@@ -151,6 +154,7 @@ public class CategoryServiceImpl {
                 .icon(category.getIcon())
                 .color(category.getColor())
                 .isSystem(category.getIsSystem())
+                .isActive(category.getIsActive())
                 .displayOrder(category.getDisplayOrder())
                 .build();
     }
