@@ -340,6 +340,17 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
+    public void markOtpVerified(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        user.setOtpVerifiedUntil(LocalDateTime.now().plusDays(30));
+        userRepository.save(user);
+        log.info("User {} ({}) verified OTP successfully, trusted until {}",
+                user.getUsername(), user.getEmail(), user.getOtpVerifiedUntil());
+    }
+
+    @Override
+    @Transactional
     public AuthResponse loginWithGoogle(String email, String name, String picture, String googleId) {
         User user = findOrCreateGoogleUser(email, name, picture, googleId);
         String accessToken = tokenProvider.generateTokenFromUserId(user.getId());

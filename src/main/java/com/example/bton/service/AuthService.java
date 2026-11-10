@@ -17,4 +17,5 @@ public interface AuthService {
     AuthResponse loginWithGoogle(String email, String name, String picture, String googleId);
     com.example.bton.entity.User findOrCreateGoogleUser(String email, String name, String picture, String googleId);
     AuthResponse generateAuthResponseForUser(Long userId);
+    void markOtpVerified(Long userId);
 }

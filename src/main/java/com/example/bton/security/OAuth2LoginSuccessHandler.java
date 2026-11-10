@@ -74,7 +74,26 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             // 1. Tìm hoặc tạo user với avatar từ Google
             com.example.bton.entity.User user = authService.findOrCreateGoogleUser(email, name, picture, googleId);
 
-            // 2. Tạo mã OTP gửi về email người dùng
+            // Kiểm tra xem tài khoản này đã xác thực OTP trong vòng 30 ngày (1 tháng) chưa
+            boolean isOtpVerified = user.getOtpVerifiedUntil() != null
+                    && java.time.LocalDateTime.now().isBefore(user.getOtpVerifiedUntil());
+
+            if (isOtpVerified) {
+                log.info("User {} ({}) da xac thuc OTP trong 30 ngay (han den {}), bo qua buoc OTP",
+                        user.getUsername(), user.getEmail(), user.getOtpVerifiedUntil());
+
+                AuthResponse authResponse = authService.generateAuthResponseForUser(user.getId());
+                String redirectUrl = UriComponentsBuilder.fromUriString(baseFrontendUrl)
+                        .replacePath("/oauth2/callback")
+                        .queryParam("token", authResponse.getAccessToken())
+                        .queryParam("refreshToken", authResponse.getRefreshToken())
+                        .build().toUriString();
+
+                getRedirectStrategy().sendRedirect(request, response, redirectUrl);
+                return;
+            }
+
+            // 2. Chưa xác thực hoặc đã hết hạn 30 ngày -> Tạo mã OTP gửi về email người dùng
             String otpSessionId = otpService.generateAndSendOtp(user.getId(), user.getEmail(), user.getFullName());
 
             // 3. Chuyển hướng về trang OTP verification trên frontend

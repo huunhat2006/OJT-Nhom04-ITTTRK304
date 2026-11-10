@@ -39,6 +39,8 @@ public class AuthController {
         if (userId == null) {
             throw new com.example.bton.exception.BadRequestException("Mã OTP không chính xác hoặc đã hết hạn");
         }
+        // Đánh dấu tài khoản đã xác thực OTP thành công trong vòng 30 ngày (1 tháng)
+        authService.markOtpVerified(userId);
         return ResponseEntity.ok(authService.generateAuthResponseForUser(userId));
     }
 

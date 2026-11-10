@@ -57,6 +57,9 @@ public class User {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "otp_verified_until")
+    private LocalDateTime otpVerifiedUntil;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
