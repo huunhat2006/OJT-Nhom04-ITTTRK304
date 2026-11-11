@@ -6,6 +6,66 @@ import { User, PageResponse } from '../../types';
 import { formatDateTime } from '../../lib/utils';
 import toast from 'react-hot-toast';
 
+// Tạo Gravatar URL từ email (MD5 hash)
+// Gravatar hỗ trợ cả Gmail và bất kỳ email nào có tài khoản Gravatar
+async function getGravatarUrl(email: string, size = 80): Promise<string> {
+  const normalized = email.trim().toLowerCase();
+  const msgBuffer = new TextEncoder().encode(normalized);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  // d=404 → trả 404 nếu không có avatar (để detect và fallback về chữ cái)
+  return `https://www.gravatar.com/avatar/${hashHex}?s=${size}&d=404`;
+}
+
+// Component avatar dùng chung: ưu tiên avatarUrl → Gravatar → chữ cái đầu
+function UserAvatar({ user }: { user: User }) {
+  const [src, setSrc] = useState<string | null>(user.avatarUrl || null);
+
+  useEffect(() => {
+    if (user.avatarUrl) {
+      setSrc(user.avatarUrl);
+      return;
+    }
+    // Thử load Gravatar từ email
+    getGravatarUrl(user.email).then((url) => {
+      const img = new Image();
+      img.onload = () => setSrc(url);
+      img.onerror = () => setSrc(null);
+      img.src = url;
+    });
+  }, [user.email, user.avatarUrl]);
+
+  // Màu nền ngẫu nhiên nhưng nhất quán theo tên
+  const colors = [
+    'bg-violet-500', 'bg-indigo-500', 'bg-blue-500', 'bg-cyan-500',
+    'bg-teal-500', 'bg-emerald-500', 'bg-orange-500', 'bg-rose-500',
+  ];
+  const colorIndex =
+    (user.fullName?.charCodeAt(0) || 0) % colors.length;
+  const bgColor = colors[colorIndex];
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={user.fullName}
+        className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm"
+        onError={() => setSrc(null)}
+      />
+    );
+  }
+
+  // Fallback: chữ cái đầu với màu nhất quán
+  return (
+    <div
+      className={`w-10 h-10 rounded-full ${bgColor} flex items-center justify-center text-white font-semibold text-sm shadow-sm`}
+    >
+      {user.fullName?.charAt(0)?.toUpperCase() || '?'}
+    </div>
+  );
+}
+
 export default function Users() {
   const [users, setUsers] = useState<PageResponse<User> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,9 +207,7 @@ export default function Users() {
                     >
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-medium">
-                            {user.fullName.charAt(0)}
-                          </div>
+                          <UserAvatar user={user} />
                           <div>
                             <div className="font-medium text-sm text-gray-900">
                               {user.fullName}
