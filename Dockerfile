@@ -41,11 +41,15 @@ RUN GRADLE_OPTS="-Xmx512m -Xms256m" gradle bootJar --no-daemon -x test --stacktr
 # ── Stage 2: Runtime ──────────────────────────────────────────
 FROM eclipse-temurin:21-jre-alpine AS runtime
 
-# Security: install fonts for PDF/charts generation, create user and app directory with logs
-RUN apk add --no-cache font-dejavu ttf-dejavu fontconfig \
+# Security & Localization: install fonts for PDF/charts generation and tzdata for Vietnam timezone
+RUN apk add --no-cache font-dejavu ttf-dejavu fontconfig tzdata \
+    && cp /usr/share/zoneinfo/Asia/Ho_Chi_Minh /etc/localtime \
+    && echo "Asia/Ho_Chi_Minh" > /etc/timezone \
     && addgroup -S bton && adduser -S bton -G bton \
     && mkdir -p /app/logs \
     && chown -R bton:bton /app
+
+ENV TZ=Asia/Ho_Chi_Minh
 
 WORKDIR /app
 
@@ -67,4 +71,5 @@ ENTRYPOINT ["java", \
     "-XX:MaxRAMPercentage=75.0", \
     "-Djava.awt.headless=true", \
     "-Djava.security.egd=file:/dev/./urandom", \
+    "-Duser.timezone=Asia/Ho_Chi_Minh", \
     "-jar", "app.jar"]

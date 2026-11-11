@@ -15,5 +15,6 @@ public class CategoryResponse {
     private String icon;
     private String color;
     private Boolean isSystem;
+    private Boolean isActive;
     private Integer displayOrder;
 }
