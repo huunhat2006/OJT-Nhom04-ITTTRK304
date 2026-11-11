@@ -9,6 +9,8 @@
 spring:
   main:
     allow-circular-references: true
+  jackson:
+    time-zone: Asia/Ho_Chi_Minh
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}

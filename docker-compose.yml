@@ -59,6 +59,7 @@ services:
       mysql:
         condition: service_healthy
     environment:
+      TZ: Asia/Ho_Chi_Minh
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-bton_db}?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-bton}
@@ -97,6 +98,8 @@ services:
       target: runtime
     container_name: bton-frontend
     restart: unless-stopped
+    environment:
+      TZ: Asia/Ho_Chi_Minh
     depends_on:
       backend:
         condition: service_started
