@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Target, TrendingUp, Pencil, Trash2, Wallet, XCircle } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
 import api from '../../lib/axios';
-import { SavingsGoal, Wallet as WalletType } from '../../types';
+import { SavingsGoal, Wallet as WalletType, Category } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -28,6 +28,7 @@ export default function Goals() {
   const [saving, setSaving] = useState(false);
 
   const [wallets, setWallets] = useState<WalletType[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const [showAddAmount, setShowAddAmount] = useState<SavingsGoal | null>(null);
   const [addAmount, setAddAmount] = useState('');
@@ -37,6 +38,7 @@ export default function Goals() {
     if (currentSpace) {
       fetchGoals();
       fetchWallets();
+      fetchCategories();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSpace]);
@@ -59,6 +61,15 @@ export default function Goals() {
     try {
       const { data } = await api.get<WalletType[]>(`/wallets?spaceId=${currentSpace.id}`);
       setWallets(data.filter((w) => w.isActive !== false));
+    } catch {
+      // ignore
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const { data } = await api.get<Category[]>('/categories');
+      setCategories(data);
     } catch {
       // ignore
     }
@@ -163,6 +174,16 @@ export default function Goals() {
       toast.error(`Số dư ví "${selectedWallet.name}" không đủ`);
       return;
     }
+
+    // Find the "Savings" category
+    const savingsCategory = categories.find(
+      (c) => c.name === 'Savings' || c.nameVi === 'Tiết kiệm'
+    );
+    if (!savingsCategory) {
+      toast.error('Không tìm thấy danh mục Tiết kiệm trong hệ thống');
+      return;
+    }
+
     try {
       // 1. Update savings goal amount
       await api.patch(`/savings-goals/${showAddAmount.id}/amount`, {
@@ -173,6 +194,7 @@ export default function Goals() {
       await api.post('/transactions', {
         spaceId: currentSpace.id,
         walletId: Number(addWalletId),
+        categoryId: savingsCategory.id,
         type: 'EXPENSE',
         amount: Number(addAmount),
         description: `Tiết kiệm: ${showAddAmount.name}`,
