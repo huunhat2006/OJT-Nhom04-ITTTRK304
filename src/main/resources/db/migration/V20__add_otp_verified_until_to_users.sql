@@ -2,3 +2,4 @@
 -- Tác giả: Trần Hữu Nhật (Backend & DevOps Lead)
 
 ALTER TABLE users ADD COLUMN otp_verified_until DATETIME NULL;
+
