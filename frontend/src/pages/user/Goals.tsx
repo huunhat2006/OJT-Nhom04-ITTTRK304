@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Target, TrendingUp, Pencil, Trash2, Wallet, XCircle } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
 import api from '../../lib/axios';
-import { SavingsGoal } from '../../types';
+import { SavingsGoal, Wallet as WalletType } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -27,11 +27,17 @@ export default function Goals() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
+  const [wallets, setWallets] = useState<WalletType[]>([]);
+
   const [showAddAmount, setShowAddAmount] = useState<SavingsGoal | null>(null);
   const [addAmount, setAddAmount] = useState('');
+  const [addWalletId, setAddWalletId] = useState('');
 
   useEffect(() => {
-    if (currentSpace) fetchGoals();
+    if (currentSpace) {
+      fetchGoals();
+      fetchWallets();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSpace]);
 
@@ -45,6 +51,16 @@ export default function Goals() {
       toast.error('Không thể tải danh sách mục tiêu');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWallets = async () => {
+    if (!currentSpace) return;
+    try {
+      const { data } = await api.get<WalletType[]>(`/wallets?spaceId=${currentSpace.id}`);
+      setWallets(data.filter((w) => w.isActive !== false));
+    } catch {
+      // ignore
     }
   };
 
@@ -133,19 +149,43 @@ export default function Goals() {
 
   const handleAddAmount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!showAddAmount) return;
+    if (!showAddAmount || !currentSpace) return;
     if (!addAmount || Number(addAmount) <= 0) {
       toast.error('Số tiền không hợp lệ');
       return;
     }
+    if (!addWalletId) {
+      toast.error('Vui lòng chọn ví để trừ tiền');
+      return;
+    }
+    const selectedWallet = wallets.find((w) => w.id === Number(addWalletId));
+    if (selectedWallet && Number(addAmount) > selectedWallet.balance) {
+      toast.error(`Số dư ví "${selectedWallet.name}" không đủ`);
+      return;
+    }
     try {
+      // 1. Update savings goal amount
       await api.patch(`/savings-goals/${showAddAmount.id}/amount`, {
         amount: Number(addAmount),
       });
-      toast.success('Đã cập nhật số tiền tiết kiệm');
+
+      // 2. Create an EXPENSE transaction to deduct from the selected wallet
+      await api.post('/transactions', {
+        spaceId: currentSpace.id,
+        walletId: Number(addWalletId),
+        type: 'EXPENSE',
+        amount: Number(addAmount),
+        description: `Tiết kiệm: ${showAddAmount.name}`,
+        transactionDate: new Date().toISOString().split('T')[0],
+        note: `Đóng góp vào mục tiêu "${showAddAmount.name}"`,
+      });
+
+      toast.success('Đã cập nhật tiết kiệm và tạo giao dịch');
       setShowAddAmount(null);
       setAddAmount('');
+      setAddWalletId('');
       fetchGoals();
+      fetchWallets();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Không thể cập nhật');
     }
@@ -307,6 +347,7 @@ export default function Goals() {
                       onClick={() => {
                         setShowAddAmount(goal);
                         setAddAmount('');
+                        setAddWalletId('');
                       }}
                       className="btn btn-primary flex-1 flex items-center justify-center gap-1"
                     >
@@ -441,7 +482,7 @@ export default function Goals() {
       {/* Add amount modal */}
       <Modal
         open={!!showAddAmount}
-        onClose={() => setShowAddAmount(null)}
+        onClose={() => { setShowAddAmount(null); setAddWalletId(''); }}
         title={`Thêm tiền — ${showAddAmount?.name || ''}`}
       >
         <form onSubmit={handleAddAmount} className="space-y-4">
@@ -462,11 +503,40 @@ export default function Goals() {
               autoFocus
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Chọn ví *</label>
+            <select
+              value={addWalletId}
+              onChange={(e) => setAddWalletId(e.target.value)}
+              className="input"
+              required
+            >
+              <option value="">-- Chọn ví --</option>
+              {wallets.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name} — {formatCurrency(w.balance)}
+                </option>
+              ))}
+            </select>
+            {addWalletId && (() => {
+              const wallet = wallets.find((w) => w.id === Number(addWalletId));
+              const amount = Number(addAmount) || 0;
+              if (!wallet) return null;
+              const insufficient = amount > wallet.balance;
+              return (
+                <p className={`text-xs mt-1 ${insufficient ? 'text-danger' : 'text-gray-500'}`}>
+                  Số dư sau khi trừ:{' '}
+                  <strong>{formatCurrency(wallet.balance - amount)}</strong>
+                  {insufficient && ' — Số dư không đủ!'}
+                </p>
+              );
+            })()}
+          </div>
           <div className="flex gap-3 pt-2">
             <button type="submit" className="btn btn-primary flex-1">
               Cập nhật
             </button>
-            <button type="button" onClick={() => setShowAddAmount(null)} className="btn btn-secondary flex-1">
+            <button type="button" onClick={() => { setShowAddAmount(null); setAddWalletId(''); }} className="btn btn-secondary flex-1">
               Hủy
             </button>
           </div>
