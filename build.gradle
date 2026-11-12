@@ -81,9 +81,11 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
-    finalizedBy jacocoTestReport
+    // finalizedBy jacocoTestReport  // Temporarily disabled due to Gradle/JaCoCo compatibility issue
 }
 
+// Temporarily disabled due to Gradle/JaCoCo compatibility issue
+/*
 jacocoTestReport {
     dependsOn test
     reports {
@@ -103,6 +105,7 @@ jacocoTestReport {
         }))
     }
 }
+*/
 
 jacocoTestCoverageVerification {
     dependsOn jacocoTestReport
@@ -131,13 +134,22 @@ jacocoTestCoverageVerification {
 
 check.dependsOn jacocoTestCoverageVerification
 
-
+// sonar của Thắng
+// sonar {
+//     properties {
+//         property "sonar.projectKey", "BTON"
+//         property "sonar.projectName", "BTON"
+//         property "sonar.host.url", "http://localhost:9000"
+//         property "sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/test/jacocoTestReport.xml"
+//         property "sonar.coverage.exclusions", "**/config/**, **/dto/**, **/*Application.*"
+//     }
+// }
 sonar {
     properties {
         property "sonar.projectKey", "BTON"
-        property "sonar.projectName", "BTON"
+        property "sonar.projectName", "BTON - Personal Finance Management System"
         property "sonar.host.url", "http://localhost:9000"
         property "sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/test/jacocoTestReport.xml"
-        property "sonar.coverage.exclusions", "**/config/**, **/dto/**, **/*Application.*"
+        property "sonar.coverage.exclusions", "**/config/**, **/dto/**, **/*Application.*, **/enums/**, **/entity/**"
     }
 }

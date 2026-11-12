@@ -104,7 +104,9 @@ public class SavingsGoalServiceImpl {
             throw new BadRequestException("Cannot update a cancelled goal");
         }
 
-        goal.setCurrentAmount(request.getAmount());
+        // Add the amount to current amount (accumulate instead of replace)
+        BigDecimal newAmount = goal.getCurrentAmount().add(request.getAmount());
+        goal.setCurrentAmount(newAmount);
 
         // Auto-complete when target reached
         if (goal.getCurrentAmount().compareTo(goal.getTargetAmount()) >= 0) {
