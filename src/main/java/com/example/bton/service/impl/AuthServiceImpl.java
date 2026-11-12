@@ -227,13 +227,22 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
-            throw new BadRequestException("Current password is incorrect");
+        boolean hasPassword = user.getPasswordHash() != null && !user.getPasswordHash().isBlank();
+
+        if (hasPassword) {
+            // Đã có mật khẩu → yêu cầu xác nhận mật khẩu cũ
+            if (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank()) {
+                throw new BadRequestException("Vui lòng nhập mật khẩu hiện tại");
+            }
+            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+                throw new BadRequestException("Mật khẩu hiện tại không đúng");
+            }
         }
+        // Chưa có mật khẩu (đăng nhập qua Google) → cho phép thiết lập mật khẩu mới luôn
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
-        log.info("Password changed for user: {}", user.getUsername());
+        log.info("Password {} for user: {}", hasPassword ? "changed" : "set", user.getUsername());
     }
 
     private UserResponse mapToUserResponse(User user) {
@@ -247,6 +256,7 @@ public class AuthServiceImpl implements AuthService {
                 .timezone(user.getTimezone())
                 .role(user.getRole())
                 .isActive(user.getIsActive())
+                .hasPassword(user.getPasswordHash() != null && !user.getPasswordHash().isBlank())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

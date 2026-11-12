@@ -8,6 +8,7 @@ export interface User {
   avatarUrl?: string;
   role: 'USER' | 'ADMIN';
   isActive: boolean;
+  hasPassword?: boolean; // false nếu đăng nhập bằng Google và chưa thiết lập mật khẩu
   createdAt: string;
   updatedAt?: string;
 }

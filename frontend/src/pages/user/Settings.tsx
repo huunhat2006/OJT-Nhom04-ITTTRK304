@@ -129,8 +129,11 @@ export default function Settings() {
       confirmPassword: '',
     };
 
-    if (!passwordData.currentPassword) {
-      newErrors.currentPassword = t('auth.errors.loginPasswordRequired');
+    // Chỉ validate currentPassword nếu user đã có mật khẩu
+    if (user?.hasPassword !== false) {
+      if (!passwordData.currentPassword) {
+        newErrors.currentPassword = t('auth.errors.loginPasswordRequired');
+      }
     }
 
     if (!passwordData.newPassword) {
@@ -179,21 +182,22 @@ export default function Settings() {
 
     setLoading(true);
     try {
-      await api.put('/auth/change-password', {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword,
-      });
-      toast.success(t('settings.password.success'));
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      });
-      setPasswordErrors({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      });
+      const payload: any = { newPassword: passwordData.newPassword };
+      // Chỉ gửi currentPassword nếu user đã có mật khẩu
+      if (user?.hasPassword !== false) {
+        payload.currentPassword = passwordData.currentPassword;
+      }
+      await api.put('/auth/change-password', payload);
+      toast.success(
+        user?.hasPassword === false
+          ? 'Thiết lập mật khẩu thành công! Bạn có thể đăng nhập bằng email/mật khẩu.'
+          : t('settings.password.success')
+      );
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordErrors({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      // Refresh user info để cập nhật hasPassword = true
+      const { data } = await api.get('/auth/me');
+      updateUser(data);
     } catch (error: any) {
       toast.error(error.response?.data?.message || t('settings.password.failed'));
     } finally {
@@ -321,70 +325,93 @@ export default function Settings() {
 
           {/* Tab 2: Password */}
           {activeTab === 'password' && (
-            <form onSubmit={handleChangePassword} className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                {t('settings.password.title')}
-              </h2>
-
+            <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('settings.password.current')} <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
-                  className={`input ${passwordErrors.currentPassword ? 'border-danger focus:ring-danger' : ''}`}
-                />
-                {passwordErrors.currentPassword && (
-                  <p className="mt-1 text-sm text-danger">{passwordErrors.currentPassword}</p>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  {user?.hasPassword === false
+                    ? 'Thiết lập mật khẩu'
+                    : t('settings.password.title')}
+                </h2>
+                {user?.hasPassword === false && (
+                  <div className="mt-3 flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                    <svg className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Tài khoản của bạn hiện đang đăng nhập qua <strong>Google</strong>. Bạn có thể thiết lập mật khẩu riêng để đăng nhập bằng email/mật khẩu sau này.
+                    </p>
+                  </div>
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('settings.password.new')} <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="password"
-                  value={passwordData.newPassword}
-                  onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
-                  className={`input ${passwordErrors.newPassword ? 'border-danger focus:ring-danger' : ''}`}
-                />
-                {passwordErrors.newPassword && (
-                  <p className="mt-1 text-sm text-danger">{passwordErrors.newPassword}</p>
+              <form onSubmit={handleChangePassword} className="space-y-6">
+                {/* Chỉ hiện ô mật khẩu hiện tại nếu user đã có mật khẩu */}
+                {user?.hasPassword !== false && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {t('settings.password.current')} <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
+                      className={`input ${passwordErrors.currentPassword ? 'border-danger focus:ring-danger' : ''}`}
+                    />
+                    {passwordErrors.currentPassword && (
+                      <p className="mt-1 text-sm text-danger">{passwordErrors.currentPassword}</p>
+                    )}
+                  </div>
                 )}
-                {!passwordErrors.newPassword && (
-                  <p className="mt-1 text-xs text-gray-500">
-                    {t('settings.password.hint')}
-                  </p>
-                )}
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('settings.password.confirm')} <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
-                  className={`input ${passwordErrors.confirmPassword ? 'border-danger focus:ring-danger' : ''}`}
-                />
-                {passwordErrors.confirmPassword && (
-                  <p className="mt-1 text-sm text-danger">{passwordErrors.confirmPassword}</p>
-                )}
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {user?.hasPassword === false ? 'Mật khẩu mới' : t('settings.password.new')} <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                    className={`input ${passwordErrors.newPassword ? 'border-danger focus:ring-danger' : ''}`}
+                  />
+                  {passwordErrors.newPassword && (
+                    <p className="mt-1 text-sm text-danger">{passwordErrors.newPassword}</p>
+                  )}
+                  {!passwordErrors.newPassword && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {t('settings.password.hint')}
+                    </p>
+                  )}
+                </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary flex items-center gap-2"
-              >
-                <Lock className="w-4 h-4" />
-                {loading ? t('settings.password.submitting') : t('settings.password.submit')}
-              </button>
-            </form>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('settings.password.confirm')} <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
+                    className={`input ${passwordErrors.confirmPassword ? 'border-danger focus:ring-danger' : ''}`}
+                  />
+                  {passwordErrors.confirmPassword && (
+                    <p className="mt-1 text-sm text-danger">{passwordErrors.confirmPassword}</p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn btn-primary flex items-center gap-2"
+                >
+                  <Lock className="w-4 h-4" />
+                  {loading
+                    ? t('settings.password.submitting')
+                    : user?.hasPassword === false
+                      ? 'Thiết lập mật khẩu'
+                      : t('settings.password.submit')}
+                </button>
+              </form>
+            </div>
           )}
 
           {/* Tab 3: Spaces */}
