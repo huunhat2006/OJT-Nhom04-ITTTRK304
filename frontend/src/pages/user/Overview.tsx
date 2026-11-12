@@ -329,10 +329,6 @@ export default function Overview() {
             className="input min-w-0 py-2"
             aria-label="Chọn tháng xem dashboard"
           />
-          <Link to="/transactions?action=create" className="btn btn-primary flex items-center justify-center gap-2 whitespace-nowrap">
-            <Plus className="w-4 h-4" />
-            Thêm giao dịch
-          </Link>
           <Link to="/budget?action=create" className="btn btn-secondary flex items-center justify-center gap-2 whitespace-nowrap">
             <Plus className="w-4 h-4" />
             Đặt ngân sách
