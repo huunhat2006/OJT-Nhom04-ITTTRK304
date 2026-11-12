@@ -64,14 +64,21 @@ export default function Login() {
 
     try {
       const response = await api.post<AuthResponse>('/auth/login', formData);
+      // Lấy đầy đủ user info từ /auth/me (gồm hasPassword)
+      const meRes = await api.get('/auth/me', {
+        headers: { Authorization: `Bearer ${response.data.accessToken}` },
+      });
       login({
-        id: response.data.userId,
-        username: response.data.username,
-        email: response.data.email,
-        fullName: response.data.fullName,
-        role: response.data.role,
-        isActive: true,
-        createdAt: '',
+        id: meRes.data.id,
+        username: meRes.data.username,
+        email: meRes.data.email,
+        fullName: meRes.data.fullName,
+        role: meRes.data.role,
+        isActive: meRes.data.isActive ?? true,
+        hasPassword: meRes.data.hasPassword ?? true,
+        avatarUrl: meRes.data.avatarUrl,
+        phone: meRes.data.phone,
+        createdAt: meRes.data.createdAt ?? '',
       }, response.data.accessToken, response.data.refreshToken);
       toast.success('Đăng nhập thành công!');
       if (response.data.role === 'ADMIN') {
