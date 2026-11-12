@@ -141,7 +141,6 @@ public class DashboardServiceImpl implements DashboardService {
                 .percentage(percentage)
                 .build();
     }
-    }
 
     private Long resolveSpaceId(Long spaceId, Long userId) {
         if (spaceId != null) {

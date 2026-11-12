@@ -111,7 +111,6 @@ public class AlertServiceImpl implements AlertService {
                 default: return 5;
             }
         }));
-        }));
 
         // Tính điểm sức khỏe tài chính (SpendingHealthScore)
         int score = 100;
