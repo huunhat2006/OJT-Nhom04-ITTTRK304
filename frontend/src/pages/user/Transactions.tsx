@@ -1,7 +1,6 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Download, Search, Pencil, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Download, Search, Pencil, Trash2, Image as ImageIcon } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
 import api from '../../lib/axios';
 import { Transaction, PageResponse, Category, Wallet } from '../../types';
@@ -22,8 +21,6 @@ const emptyForm = {
 
 export default function Transactions() {
   const { currentSpace } = useSpaceStore();
-  const location = useLocation();
-  const navigate = useNavigate();
   const [transactions, setTransactions] = useState<PageResponse<Transaction> | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -90,21 +87,6 @@ export default function Transactions() {
     }
   };
 
-  const openCreate = () => {
-    setEditing(null);
-    setForm(emptyForm);
-    setShowForm(true);
-  };
-
-  useEffect(() => {
-    if (new URLSearchParams(location.search).get('action') === 'create') {
-      setEditing(null);
-      setForm(emptyForm);
-      setShowForm(true);
-      navigate(location.pathname, { replace: true });
-    }
-  }, [location.pathname, location.search, navigate]);
-
   const openEdit = (t: Transaction) => {
     setEditing(t);
     setForm({
@@ -151,9 +133,6 @@ export default function Transactions() {
       if (editing) {
         await api.put(`/transactions/${editing.id}`, payload);
         toast.success('Đã cập nhật giao dịch');
-      } else {
-        await api.post('/transactions', payload);
-        toast.success('Đã thêm giao dịch');
       }
       setShowForm(false);
       fetchTransactions();
@@ -222,10 +201,6 @@ export default function Transactions() {
           <button onClick={handleExport} className="btn btn-secondary flex items-center gap-2">
             <Download className="w-4 h-4" />
             Xuất Excel
-          </button>
-          <button onClick={openCreate} className="btn btn-primary flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            Thêm giao dịch
           </button>
         </div>
       </div>
@@ -429,11 +404,11 @@ export default function Transactions() {
         )}
       </div>
 
-      {/* Create/Edit modal */}
+      {/* Edit modal */}
       <Modal
         open={showForm}
         onClose={() => setShowForm(false)}
-        title={editing ? 'Sửa giao dịch' : 'Thêm giao dịch'}
+        title="Sửa giao dịch"
       >
         <form onSubmit={handleSave} className="space-y-4">
           <div>
