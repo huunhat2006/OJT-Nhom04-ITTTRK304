@@ -1,9 +1,10 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useEffect, useState } from 'react';
-import { Plus, Wallet, ArrowLeftRight, Pencil, Archive, Banknote, CreditCard, Smartphone } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Wallet, ArrowLeftRight, Pencil, Archive, Banknote, CreditCard, Smartphone, TrendingUp } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
 import api from '../../lib/axios';
-import { Wallet as WalletType } from '../../types';
+import { Wallet as WalletType, Category } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -47,8 +48,22 @@ export default function Wallets() {
   const [transfer, setTransfer] = useState(emptyTransfer);
   const [transferring, setTransferring] = useState(false);
 
+  // Income transaction modal
+  const navigate = useNavigate();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [showIncome, setShowIncome] = useState<WalletType | null>(null);
+  const [incomeForm, setIncomeForm] = useState({
+    categoryId: '',
+    amount: '',
+    description: '',
+    transactionDate: new Date().toISOString().split('T')[0],
+    note: '',
+  });
+  const [addingIncome, setAddingIncome] = useState(false);
+
   useEffect(() => {
     fetchWallets();
+    fetchCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSpace]);
 
@@ -62,6 +77,64 @@ export default function Wallets() {
       toast.error('Không thể tải danh sách ví');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const { data } = await api.get<Category[]>('/categories?type=INCOME');
+      setCategories(data);
+    } catch {
+      // ignore
+    }
+  };
+
+  const openIncome = (w: WalletType) => {
+    setShowIncome(w);
+    setIncomeForm({
+      categoryId: '',
+      amount: '',
+      description: '',
+      transactionDate: new Date().toISOString().split('T')[0],
+      note: '',
+    });
+  };
+
+  const handleIncome = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showIncome || !currentSpace) return;
+    if (!incomeForm.categoryId) {
+      toast.error('Vui lòng chọn danh mục');
+      return;
+    }
+    if (!incomeForm.amount || Number(incomeForm.amount) <= 0) {
+      toast.error('Số tiền không hợp lệ');
+      return;
+    }
+    if (!incomeForm.transactionDate) {
+      toast.error('Vui lòng chọn ngày giao dịch');
+      return;
+    }
+    setAddingIncome(true);
+    try {
+      await api.post('/transactions', {
+        spaceId: currentSpace.id,
+        walletId: showIncome.id,
+        categoryId: Number(incomeForm.categoryId),
+        type: 'INCOME',
+        amount: Number(incomeForm.amount),
+        description: incomeForm.description,
+        transactionDate: incomeForm.transactionDate,
+        note: incomeForm.note,
+      });
+      toast.success(`Đã ghi thu nhập vào ví "${showIncome.name}"`);
+      setShowIncome(null);
+      fetchWallets();
+      navigate('/transactions?new=1');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Không thể ghi thu nhập');
+    } finally {
+      setAddingIncome(false);
     }
   };
 
@@ -263,6 +336,15 @@ export default function Wallets() {
                   <span>{w.isShared ? 'Ví chung' : 'Ví cá nhân'}</span>
                   {archived && <span className="badge badge-secondary">Đã lưu trữ</span>}
                 </div>
+                {!archived && (
+                  <button
+                    onClick={() => openIncome(w)}
+                    className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-success text-white font-semibold text-sm hover:bg-success/90 active:scale-95 transition-all shadow-sm"
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    Ghi thu nhập
+                  </button>
+                )}
               </div>
             );
           })}
@@ -407,6 +489,116 @@ export default function Wallets() {
               {transferring ? 'Đang xử lý...' : 'Chuyển tiền'}
             </button>
             <button type="button" onClick={() => setShowTransfer(false)} className="btn btn-secondary flex-1">
+              Hủy
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Income transaction modal */}
+      <Modal
+        open={!!showIncome}
+        onClose={() => setShowIncome(null)}
+        title={`Ghi thu nhập — ${showIncome?.name || ''}`}
+      >
+        <form onSubmit={handleIncome} className="space-y-4">
+          {/* Wallet info */}
+          <div className="bg-success/10 rounded-xl p-3 flex items-center justify-between">
+            <span className="text-sm text-gray-600">Số dư hiện tại</span>
+            <span className="font-bold text-success text-lg">
+              {formatCurrency(Number(showIncome?.balance ?? 0))}
+            </span>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Danh mục *</label>
+            <select
+              value={incomeForm.categoryId}
+              onChange={(e) => setIncomeForm({ ...incomeForm, categoryId: e.target.value })}
+              className="input"
+              required
+              autoFocus
+            >
+              <option value="">-- Chọn danh mục thu nhập --</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nameVi || c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Số tiền *</label>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={incomeForm.amount}
+              onChange={(e) => setIncomeForm({ ...incomeForm, amount: e.target.value })}
+              className="input"
+              placeholder="0"
+              required
+            />
+            {incomeForm.amount && Number(incomeForm.amount) > 0 && (
+              <p className="text-xs text-success mt-1">
+                Số dư sau khi cộng:{' '}
+                <strong>
+                  {formatCurrency(Number(showIncome?.balance ?? 0) + Number(incomeForm.amount))}
+                </strong>
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
+            <input
+              type="text"
+              value={incomeForm.description}
+              onChange={(e) => setIncomeForm({ ...incomeForm, description: e.target.value })}
+              className="input"
+              placeholder="Lương tháng, thưởng..."
+              maxLength={500}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Ngày giao dịch *</label>
+            <input
+              type="date"
+              value={incomeForm.transactionDate}
+              onChange={(e) => setIncomeForm({ ...incomeForm, transactionDate: e.target.value })}
+              className="input"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú</label>
+            <textarea
+              value={incomeForm.note}
+              onChange={(e) => setIncomeForm({ ...incomeForm, note: e.target.value })}
+              className="input"
+              rows={2}
+              maxLength={1000}
+              placeholder="Ghi chú thêm..."
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={addingIncome}
+              className="btn flex-1 flex items-center justify-center gap-2 bg-success text-white hover:bg-success/90 disabled:opacity-50"
+            >
+              <TrendingUp className="w-4 h-4" />
+              {addingIncome ? 'Đang lưu...' : 'Ghi thu nhập'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowIncome(null)}
+              className="btn btn-secondary flex-1"
+            >
               Hủy
             </button>
           </div>

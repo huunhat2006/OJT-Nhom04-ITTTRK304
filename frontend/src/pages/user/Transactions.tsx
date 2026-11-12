@@ -1,6 +1,7 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useEffect, useState } from 'react';
-import { Download, Search, Image as ImageIcon } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Search, Image as ImageIcon } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
 import api from '../../lib/axios';
 import { Transaction, PageResponse, Category } from '../../types';
@@ -9,6 +10,7 @@ import toast from 'react-hot-toast';
 
 export default function Transactions() {
   const { currentSpace } = useSpaceStore();
+  const location = useLocation();
   const [transactions, setTransactions] = useState<PageResponse<Transaction> | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +29,13 @@ export default function Transactions() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSpace, filters]);
+
+  // Show toast when navigated here after a new transaction was created
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('new') === '1') {
+      toast.success('Giao dịch mới đã được tạo thành công!');
+    }
+  }, [location.search]);
 
   const fetchTransactions = async () => {
     if (!currentSpace) return;
@@ -58,29 +67,6 @@ export default function Transactions() {
     }
   };
 
-  const handleExport = async () => {
-    if (!currentSpace) return;
-    try {
-      const { data } = await axiosBlobGet(
-        `/reports/export-excel?spaceId=${currentSpace.id}`
-      );
-      const url = URL.createObjectURL(new Blob([data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `BaoCaoThuChi_${new Date().toISOString().split('T')[0]}.xlsx`;
-      link.click();
-      URL.revokeObjectURL(url);
-      toast.success('Đã xuất file Excel');
-    } catch {
-      toast.error('Không thể xuất Excel');
-    }
-  };
-
-  const axiosBlobGet = (url: string) =>
-    api.get(url, { responseType: 'blob' });
-
   if (!currentSpace) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -92,17 +78,9 @@ export default function Transactions() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Giao dịch</h1>
-          <p className="text-gray-500 mt-1">Quản lý tất cả các giao dịch thu chi</p>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={handleExport} className="btn btn-secondary flex items-center gap-2">
-            <Download className="w-4 h-4" />
-            Xuất Excel
-          </button>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Giao dịch</h1>
+        <p className="text-gray-500 mt-1">Quản lý tất cả các giao dịch thu chi</p>
       </div>
 
       {/* Filters */}
