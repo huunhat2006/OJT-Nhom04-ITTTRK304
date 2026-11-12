@@ -19,6 +19,7 @@ public class UserResponse {
     private String timezone;
     private Role role;
     private Boolean isActive;
+    private Boolean hasPassword; // false nếu đăng nhập bằng Google và chưa thiết lập mật khẩu
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

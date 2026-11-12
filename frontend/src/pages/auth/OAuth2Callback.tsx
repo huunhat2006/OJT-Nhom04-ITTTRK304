@@ -67,6 +67,7 @@ export default function OAuth2Callback() {
             phone: userData.phone,
             role: userData.role,
             isActive: userData.isActive ?? true,
+            hasPassword: userData.hasPassword ?? false,
             createdAt: userData.createdAt ?? '',
           },
           token,
