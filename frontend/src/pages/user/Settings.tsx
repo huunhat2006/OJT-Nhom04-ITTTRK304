@@ -25,6 +25,12 @@ export default function Settings() {
   const [spaceForm, setSpaceForm] = useState({ name: '', description: '' });
   const [creatingSpace, setCreatingSpace] = useState(false);
 
+  // Luôn fetch user mới nhất để đảm bảo hasPassword chính xác
+  useEffect(() => {
+    api.get('/auth/me').then(({ data }) => updateUser(data)).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'spaces') fetchSpaces();
     // eslint-disable-next-line react-hooks/exhaustive-deps
