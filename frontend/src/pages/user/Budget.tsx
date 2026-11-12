@@ -1,12 +1,12 @@
-import { getErrorMessage } from '../../lib/apiError';
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
+import { getErrorMessage } from '../../lib/apiError';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, TrendingUp, Pencil, Trash2 } from 'lucide-react';
+import { Plus, TrendingUp, Pencil, Trash2, PlusCircle } from 'lucide-react';
 import { CategoryIcon } from '../../lib/categoryIcons';
 import { useSpaceStore } from '../../store/spaceStore';
 import api from '../../lib/axios';
-import { Budget as BudgetType, Category } from '../../types';
+import { Budget as BudgetType, Category, Wallet } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
@@ -33,10 +33,22 @@ export default function Budget() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
+  // Quick-spend modal state
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [showSpend, setShowSpend] = useState<BudgetType | null>(null);
+  const [spendForm, setSpendForm] = useState({
+    walletId: '',
+    amount: '',
+    description: '',
+    transactionDate: new Date().toISOString().split('T')[0],
+  });
+  const [spending, setSpending] = useState(false);
+
   useEffect(() => {
     if (currentSpace) {
       fetchBudgets();
       fetchCategories();
+      fetchWallets();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSpace, month, year]);
@@ -62,6 +74,16 @@ export default function Budget() {
       setCategories(data);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Không thể tải danh mục chi tiêu'));
+    }
+  };
+
+  const fetchWallets = async () => {
+    if (!currentSpace) return;
+    try {
+      const { data } = await api.get<Wallet[]>(`/wallets?spaceId=${currentSpace.id}`);
+      setWallets(data.filter((w) => w.isActive !== false));
+    } catch {
+      // ignore
     }
   };
 
@@ -135,6 +157,54 @@ export default function Budget() {
       toast.error(getErrorMessage(error, 'Không thể lưu ngân sách'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openSpend = (b: BudgetType) => {
+    setShowSpend(b);
+    setSpendForm({
+      walletId: wallets.length > 0 ? String(wallets[0].id) : '',
+      amount: '',
+      description: '',
+      transactionDate: new Date().toISOString().split('T')[0],
+    });
+  };
+
+  const handleSpend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showSpend || !currentSpace) return;
+    if (!spendForm.amount || Number(spendForm.amount) <= 0) {
+      toast.error('Số tiền không hợp lệ');
+      return;
+    }
+    if (!spendForm.walletId) {
+      toast.error('Vui lòng chọn ví');
+      return;
+    }
+    const selectedWallet = wallets.find((w) => w.id === Number(spendForm.walletId));
+    if (selectedWallet && Number(spendForm.amount) > selectedWallet.balance) {
+      toast.error(`Số dư ví "${selectedWallet.name}" không đủ`);
+      return;
+    }
+    setSpending(true);
+    try {
+      await api.post('/transactions', {
+        spaceId: currentSpace.id,
+        walletId: Number(spendForm.walletId),
+        categoryId: showSpend.category?.id,
+        type: 'EXPENSE',
+        amount: Number(spendForm.amount),
+        description: spendForm.description || showSpend.category?.nameVi || showSpend.category?.name,
+        transactionDate: spendForm.transactionDate,
+      });
+      toast.success('Đã ghi chi tiêu');
+      setShowSpend(null);
+      fetchBudgets();
+      fetchWallets();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Không thể ghi chi tiêu');
+    } finally {
+      setSpending(false);
     }
   };
 
@@ -284,6 +354,13 @@ export default function Budget() {
                       {percent}%
                     </span>
                           <button
+                              onClick={() => openSpend(budget)}
+                              className="p-1.5 rounded-lg hover:bg-primary/10 text-primary"
+                              title="Ghi chi tiêu"
+                          >
+                            <PlusCircle className="w-4 h-4" />
+                          </button>
+                          <button
                               onClick={() => openEdit(budget)}
                               className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
                               title="Sửa"
@@ -397,6 +474,113 @@ export default function Budget() {
                 {saving ? 'Đang lưu...' : 'Lưu'}
               </button>
               <button type="button" onClick={() => setShowForm(false)} className="btn btn-secondary flex-1">
+                Hủy
+              </button>
+            </div>
+          </form>
+        </Modal>
+        {/* Quick-spend modal */}
+        <Modal
+            open={!!showSpend}
+            onClose={() => setShowSpend(null)}
+            title={`Ghi chi tiêu — ${showSpend?.category?.nameVi || showSpend?.category?.name || ''}`}
+        >
+          <form onSubmit={handleSpend} className="space-y-4">
+            {/* Budget progress info */}
+            <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Đã chi</span>
+                <span className="font-medium">{formatCurrency(Number(showSpend?.spent ?? 0))}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                    className={`h-2 rounded-full transition-all ${getProgressColor(showSpend?.status ?? 'NORMAL')}`}
+                    style={{ width: `${Math.min(Number(showSpend?.usagePercentage ?? 0), 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Ngân sách</span>
+                <span className="font-medium">{formatCurrency(Number(showSpend?.amount ?? 0))}</span>
+              </div>
+              <div className="flex justify-between text-sm font-medium">
+                <span className="text-gray-700">Còn lại</span>
+                <span className={Number(showSpend?.remaining ?? 0) < 0 ? 'text-danger' : 'text-success'}>
+                  {formatCurrency(Number(showSpend?.remaining ?? 0))}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Số tiền *</label>
+              <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  autoFocus
+                  value={spendForm.amount}
+                  onChange={(e) => setSpendForm({ ...spendForm, amount: e.target.value })}
+                  className="input"
+                  placeholder="0"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Chọn ví *</label>
+              <select
+                  value={spendForm.walletId}
+                  onChange={(e) => setSpendForm({ ...spendForm, walletId: e.target.value })}
+                  className="input"
+                  required
+              >
+                <option value="">-- Chọn ví --</option>
+                {wallets.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} — {formatCurrency(w.balance)}
+                    </option>
+                ))}
+              </select>
+              {spendForm.walletId && (() => {
+                const wallet = wallets.find((w) => w.id === Number(spendForm.walletId));
+                const amount = Number(spendForm.amount) || 0;
+                if (!wallet) return null;
+                const insufficient = amount > wallet.balance;
+                return (
+                    <p className={`text-xs mt-1 ${insufficient ? 'text-danger' : 'text-gray-500'}`}>
+                      Số dư sau khi trừ:{' '}
+                      <strong>{formatCurrency(wallet.balance - amount)}</strong>
+                      {insufficient && ' — Số dư không đủ!'}
+                    </p>
+                );
+              })()}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
+              <input
+                  type="text"
+                  value={spendForm.description}
+                  onChange={(e) => setSpendForm({ ...spendForm, description: e.target.value })}
+                  className="input"
+                  placeholder={showSpend?.category?.nameVi || showSpend?.category?.name || ''}
+                  maxLength={500}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Ngày giao dịch *</label>
+              <input
+                  type="date"
+                  value={spendForm.transactionDate}
+                  onChange={(e) => setSpendForm({ ...spendForm, transactionDate: e.target.value })}
+                  className="input"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button type="submit" disabled={spending} className="btn btn-primary flex-1">
+                {spending ? 'Đang lưu...' : 'Ghi chi tiêu'}
+              </button>
+              <button type="button" onClick={() => setShowSpend(null)} className="btn btn-secondary flex-1">
                 Hủy
               </button>
             </div>
