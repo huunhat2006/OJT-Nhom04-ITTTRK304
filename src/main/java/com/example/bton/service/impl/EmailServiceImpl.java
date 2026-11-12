@@ -24,6 +24,10 @@ import java.time.Year;
 @Slf4j
 public class EmailServiceImpl implements EmailService {
 
+    private static final String VAR_RECIPIENT_NAME = "recipientName";
+    private static final String DEFAULT_RECIPIENT_NAME = "Quý khách";
+    private static final String DEFAULT_NO_REPLY_EMAIL = "no-reply@budgivee.online";
+
     @Autowired(required = false)
     private JavaMailSender mailSender;
 
@@ -44,7 +48,7 @@ public class EmailServiceImpl implements EmailService {
 
         try {
             Context context = new Context();
-            context.setVariable("recipientName", (recipientName != null && !recipientName.isBlank()) ? recipientName : "Quý khách");
+            context.setVariable(VAR_RECIPIENT_NAME, (recipientName != null && !recipientName.isBlank()) ? recipientName : DEFAULT_RECIPIENT_NAME);
             context.setVariable("title", title);
             context.setVariable("message", message);
             context.setVariable("typeLabel", getTypeLabel(type));
@@ -57,7 +61,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
 
-            String sender = (fromEmail != null && !fromEmail.isBlank()) ? fromEmail : "no-reply@budgivee.online";
+            String sender = (fromEmail != null && !fromEmail.isBlank()) ? fromEmail : DEFAULT_NO_REPLY_EMAIL;
             helper.setFrom(sender, "Budgivee Finance");
             helper.setTo(to);
             helper.setSubject("[BTON] " + title);
@@ -81,7 +85,7 @@ public class EmailServiceImpl implements EmailService {
 
         try {
             Context context = new Context();
-            context.setVariable("recipientName", (recipientName != null && !recipientName.isBlank()) ? recipientName : "Quý khách");
+            context.setVariable(VAR_RECIPIENT_NAME, (recipientName != null && !recipientName.isBlank()) ? recipientName : DEFAULT_RECIPIENT_NAME);
             context.setVariable("weekRange", weekRange);
             context.setVariable("totalIncome", formatCurrency(totalIncome));
             context.setVariable("totalExpense", formatCurrency(totalExpense));
@@ -95,7 +99,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
 
-            String sender = (fromEmail != null && !fromEmail.isBlank()) ? fromEmail : "no-reply@budgivee.online";
+            String sender = (fromEmail != null && !fromEmail.isBlank()) ? fromEmail : DEFAULT_NO_REPLY_EMAIL;
             helper.setFrom(sender, "Budgivee Finance");
             helper.setTo(to);
             helper.setSubject("📊 [BTON] Báo cáo tài chính tuần (" + weekRange + ")");
@@ -118,7 +122,7 @@ public class EmailServiceImpl implements EmailService {
 
         try {
             Context context = new Context();
-            context.setVariable("recipientName", (recipientName != null && !recipientName.isBlank()) ? recipientName : "Quý khách");
+            context.setVariable(VAR_RECIPIENT_NAME, (recipientName != null && !recipientName.isBlank()) ? recipientName : DEFAULT_RECIPIENT_NAME);
             context.setVariable("otpCode", otpCode);
             context.setVariable("year", Year.now().getValue());
 
@@ -127,7 +131,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
 
-            String sender = (fromEmail != null && !fromEmail.isBlank()) ? fromEmail : "no-reply@budgivee.online";
+            String sender = (fromEmail != null && !fromEmail.isBlank()) ? fromEmail : DEFAULT_NO_REPLY_EMAIL;
             helper.setFrom(sender, "BTON Finance");
             helper.setTo(to);
             helper.setSubject("BTON - Mã OTP xác thực đăng nhập Google: " + otpCode);

@@ -27,6 +27,8 @@ import java.io.IOException;
 @Slf4j
 public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
+    private static final String OAUTH2_CALLBACK_PATH = "/oauth2/callback";
+
     private final AuthService authService;
     private final CookieOAuth2AuthorizationRequestRepository cookieRepo;
     private final com.example.bton.service.OtpService otpService;
@@ -68,6 +70,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
         try {
             cookieRepo.removeAuthorizationRequest(request, response);
         } catch (Exception ignored) {
+            log.debug("Failed to remove OAuth2 cookie: {}", ignored.getMessage());
         }
 
         try {
@@ -84,7 +87,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
                 AuthResponse authResponse = authService.generateAuthResponseForUser(user.getId());
                 String redirectUrl = UriComponentsBuilder.fromUriString(baseFrontendUrl)
-                        .replacePath("/oauth2/callback")
+                        .replacePath(OAUTH2_CALLBACK_PATH)
                         .queryParam("token", authResponse.getAccessToken())
                         .queryParam("refreshToken", authResponse.getRefreshToken())
                         .build().toUriString();
@@ -98,7 +101,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
             // 3. Chuyển hướng về trang OTP verification trên frontend
             String redirectUrl = UriComponentsBuilder.fromUriString(baseFrontendUrl)
-                    .replacePath("/oauth2/callback")
+                    .replacePath(OAUTH2_CALLBACK_PATH)
                     .queryParam("otpRequired", "true")
                     .queryParam("sessionId", otpSessionId)
                     .queryParam("email", email)
@@ -109,7 +112,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
             log.error("OAuth2 login failed: ", e);
             String msg = e.getMessage() != null ? e.getMessage() : "oauth2_failed";
             String errorUrl = UriComponentsBuilder.fromUriString(baseFrontendUrl)
-                    .replacePath("/oauth2/callback")
+                    .replacePath(OAUTH2_CALLBACK_PATH)
                     .queryParam("error", msg)
                     .build().toUriString();
             getRedirectStrategy().sendRedirect(request, response, errorUrl);

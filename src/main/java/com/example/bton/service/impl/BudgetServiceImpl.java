@@ -25,7 +25,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +52,7 @@ public class BudgetServiceImpl {
                 int m = Integer.parseInt(parts[1].trim());
                 return new MonthYear(m, y);
             } catch (NumberFormatException ignored) {
+                // Fall through to single-month integer parser
             }
         }
         try {
@@ -81,7 +81,7 @@ public class BudgetServiceImpl {
         spaceService.verifySpaceAccess(resolvedSpaceId, userId);
         return budgetRepository.findBySpaceAndMonthWithCategory(resolvedSpaceId, month, year)
                 .stream().map(b -> mapToResponse(b, resolvedSpaceId, month, year))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -99,7 +99,7 @@ public class BudgetServiceImpl {
                         .percent(b.getUsagePercentage())
                         .status(b.getStatus())
                         .build()
-        ).collect(Collectors.toList());
+        ).toList();
 
         return BudgetStatusResponse.builder()
                 .budgetList(items)

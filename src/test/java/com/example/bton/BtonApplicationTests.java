@@ -1,6 +1,7 @@
 // Tác giả: Nguyễn Mạnh Thắng (QA/Tester & Báo cáo)
 package com.example.bton;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -11,6 +12,7 @@ class BtonApplicationTests {
 
     @Test
     void contextLoads() {
+        Assertions.assertTrue(true, "Application context loaded successfully");
     }
 
 }

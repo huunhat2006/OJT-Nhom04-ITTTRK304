@@ -7,7 +7,6 @@ import com.example.bton.security.JwtAuthenticationFilter;
 import com.example.bton.security.JwtTokenProvider;
 import com.example.bton.security.OAuth2LoginSuccessHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,7 +34,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
@@ -150,7 +148,7 @@ public class SecurityConfig {
         List<String> origins = Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
-                .collect(Collectors.toList());
+                .toList();
 
         if (origins.isEmpty() || origins.contains("*")) {
             configuration.setAllowedOriginPatterns(List.of("*"));

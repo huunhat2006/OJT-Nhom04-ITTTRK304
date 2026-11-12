@@ -26,7 +26,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -45,7 +44,7 @@ public class NotificationServiceImpl implements NotificationService {
         Page<Notification> notifPage = notificationRepository.findByUserIdWithFilter(userId, isRead, pageable);
         return PageResponse.<NotificationResponse>builder()
                 .content(notifPage.getContent().stream()
-                        .map(this::mapToResponse).collect(Collectors.toList()))
+                        .map(this::mapToResponse).toList())
                 .pageNumber(notifPage.getNumber())
                 .pageSize(notifPage.getSize())
                 .totalElements(notifPage.getTotalElements())
@@ -129,49 +128,53 @@ public class NotificationServiceImpl implements NotificationService {
 
         List<User> users = userRepository.findAll();
         for (User user : users) {
-            try {
-                List<Object[]> totals = transactionRepository.sumTotalsByUserIdAndDateRange(
-                        user.getId(), lastWeekMonday, lastWeekSunday);
-
-                BigDecimal income = BigDecimal.ZERO;
-                BigDecimal expense = BigDecimal.ZERO;
-
-                if (!totals.isEmpty() && totals.get(0) != null) {
-                    Object[] row = totals.get(0);
-                    if (row.length > 0 && row[0] != null) income = (BigDecimal) row[0];
-                    if (row.length > 1 && row[1] != null) expense = (BigDecimal) row[1];
-                }
-
-                BigDecimal balance = income.subtract(expense);
-
-                String summaryMessage = String.format(
-                        "Báo cáo tuần (%s): Tổng thu %,.0f VNĐ, Tổng chi %,.0f VNĐ. Số dư tuần: %,.0f VNĐ.",
-                        weekRange, income.doubleValue(), expense.doubleValue(), balance.doubleValue());
-
-                Notification notification = Notification.builder()
-                        .user(user)
-                        .title("Báo cáo tài chính tuần (" + weekRange + ")")
-                        .message(summaryMessage)
-                        .type(NotificationType.WEEKLY_SUMMARY)
-                        .isRead(false)
-                        .build();
-                notificationRepository.save(notification);
-
-                if (user.getEmail() != null && !user.getEmail().isBlank()) {
-                    emailService.sendWeeklyReportEmail(
-                            user.getEmail(),
-                            user.getFullName(),
-                            weekRange,
-                            income,
-                            expense,
-                            balance,
-                            summaryMessage);
-                }
-            } catch (Exception e) {
-                log.warn("Failed to generate weekly summary for user {}: {}", user.getId(), e.getMessage());
-            }
+            processUserWeeklySummary(user, lastWeekMonday, lastWeekSunday, weekRange);
         }
         log.info("Weekly summary report completed for {} users.", users.size());
+    }
+
+    private void processUserWeeklySummary(User user, LocalDate lastWeekMonday, LocalDate lastWeekSunday, String weekRange) {
+        try {
+            List<Object[]> totals = transactionRepository.sumTotalsByUserIdAndDateRange(
+                    user.getId(), lastWeekMonday, lastWeekSunday);
+
+            BigDecimal income = BigDecimal.ZERO;
+            BigDecimal expense = BigDecimal.ZERO;
+
+            if (!totals.isEmpty() && totals.get(0) != null) {
+                Object[] row = totals.get(0);
+                if (row.length > 0 && row[0] != null) income = (BigDecimal) row[0];
+                if (row.length > 1 && row[1] != null) expense = (BigDecimal) row[1];
+            }
+
+            BigDecimal balance = income.subtract(expense);
+
+            String summaryMessage = String.format(
+                    "Báo cáo tuần (%s): Tổng thu %,.0f VNĐ, Tổng chi %,.0f VNĐ. Số dư tuần: %,.0f VNĐ.",
+                    weekRange, income.doubleValue(), expense.doubleValue(), balance.doubleValue());
+
+            Notification notification = Notification.builder()
+                    .user(user)
+                    .title("Báo cáo tài chính tuần (" + weekRange + ")")
+                    .message(summaryMessage)
+                    .type(NotificationType.WEEKLY_SUMMARY)
+                    .isRead(false)
+                    .build();
+            notificationRepository.save(notification);
+
+            if (user.getEmail() != null && !user.getEmail().isBlank()) {
+                emailService.sendWeeklyReportEmail(
+                        user.getEmail(),
+                        user.getFullName(),
+                        weekRange,
+                        income,
+                        expense,
+                        balance,
+                        summaryMessage);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to generate weekly summary for user {}: {}", user.getId(), e.getMessage());
+        }
     }
 
     private NotificationResponse mapToResponse(Notification n) {

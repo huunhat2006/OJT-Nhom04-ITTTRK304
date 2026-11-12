@@ -21,6 +21,9 @@ import java.util.Map;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    private static final String FORBIDDEN_ERROR = "Forbidden";
+    private static final String UNAUTHORIZED_ERROR = "Unauthorized";
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFound(
             ResourceNotFoundException ex, WebRequest request) {
@@ -38,7 +41,7 @@ public class GlobalExceptionHandler {
             AccessDeniedException ex, WebRequest request) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
-                "Forbidden",
+                FORBIDDEN_ERROR,
                 ex.getMessage(),
                 request.getDescription(false).replace("uri=", ""),
                 LocalDateTime.now());
@@ -94,7 +97,7 @@ public class GlobalExceptionHandler {
             BadCredentialsException ex, WebRequest request) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.UNAUTHORIZED.value(),
-                "Unauthorized",
+                UNAUTHORIZED_ERROR,
                 "Invalid username/email or password",
                 request.getDescription(false).replace("uri=", ""),
                 LocalDateTime.now());
@@ -106,7 +109,7 @@ public class GlobalExceptionHandler {
             DisabledException ex, WebRequest request) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.UNAUTHORIZED.value(),
-                "Unauthorized",
+                UNAUTHORIZED_ERROR,
                 "Account has been disabled",
                 request.getDescription(false).replace("uri=", ""),
                 LocalDateTime.now());
@@ -132,7 +135,7 @@ public class GlobalExceptionHandler {
         if (!isAuthenticated) {
             ErrorResponse error = new ErrorResponse(
                     HttpStatus.UNAUTHORIZED.value(),
-                    "Unauthorized",
+                    UNAUTHORIZED_ERROR,
                     "Authentication is required to access this resource",
                     request.getDescription(false).replace("uri=", ""),
                     LocalDateTime.now());
@@ -141,7 +144,7 @@ public class GlobalExceptionHandler {
 
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
-                "Forbidden",
+                FORBIDDEN_ERROR,
                 "You don't have permission to access this resource",
                 request.getDescription(false).replace("uri=", ""),
                 LocalDateTime.now());
@@ -157,7 +160,7 @@ public class GlobalExceptionHandler {
             org.springframework.security.access.AccessDeniedException ex, WebRequest request) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
-                "Forbidden",
+                FORBIDDEN_ERROR,
                 "You don't have permission to access this resource",
                 request.getDescription(false).replace("uri=", ""),
                 LocalDateTime.now());

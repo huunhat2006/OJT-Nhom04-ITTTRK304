@@ -110,32 +110,37 @@ public class DashboardServiceImpl implements DashboardService {
 
         List<TopExpenseCategoryResponse> result = new ArrayList<>();
         for (Object[] row : rawList) {
-            Long catId = (row[0] != null) ? ((Number) row[0]).longValue() : null;
-            String catName = (row[1] != null) ? row[1].toString() : "Khác";
-            String catNameVi = (row[2] != null) ? row[2].toString() : catName;
-            String color = (row[3] != null) ? row[3].toString() : "#6B7280";
-            String icon = (row[4] != null) ? row[4].toString() : "more";
-            BigDecimal amount = (row[5] != null) ? (BigDecimal) row[5] : BigDecimal.ZERO;
-
-            BigDecimal percentage = BigDecimal.ZERO;
-            if (totalExpense.compareTo(BigDecimal.ZERO) > 0) {
-                percentage = amount.divide(totalExpense, 4, RoundingMode.HALF_UP)
-                        .multiply(BigDecimal.valueOf(100))
-                        .setScale(2, RoundingMode.HALF_UP);
-            }
-
-            result.add(TopExpenseCategoryResponse.builder()
-                    .categoryId(catId)
-                    .categoryName(catName)
-                    .categoryNameVi(catNameVi)
-                    .icon(icon)
-                    .color(color)
-                    .totalAmount(amount)
-                    .percentage(percentage)
-                    .build());
+            result.add(mapToTopExpenseCategory(row, totalExpense));
         }
 
         return result;
+    }
+
+    private TopExpenseCategoryResponse mapToTopExpenseCategory(Object[] row, BigDecimal totalExpense) {
+        Long catId = (row[0] != null) ? ((Number) row[0]).longValue() : null;
+        String catName = (row[1] != null) ? row[1].toString() : "Khác";
+        String catNameVi = (row[2] != null) ? row[2].toString() : catName;
+        String color = (row[3] != null) ? row[3].toString() : "#6B7280";
+        String icon = (row[4] != null) ? row[4].toString() : "more";
+        BigDecimal amount = (row[5] != null) ? (BigDecimal) row[5] : BigDecimal.ZERO;
+
+        BigDecimal percentage = BigDecimal.ZERO;
+        if (totalExpense.compareTo(BigDecimal.ZERO) > 0) {
+            percentage = amount.divide(totalExpense, 4, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100))
+                    .setScale(2, RoundingMode.HALF_UP);
+        }
+
+        return TopExpenseCategoryResponse.builder()
+                .categoryId(catId)
+                .categoryName(catName)
+                .categoryNameVi(catNameVi)
+                .icon(icon)
+                .color(color)
+                .totalAmount(amount)
+                .percentage(percentage)
+                .build();
+    }
     }
 
     private Long resolveSpaceId(Long spaceId, Long userId) {

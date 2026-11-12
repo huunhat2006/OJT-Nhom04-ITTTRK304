@@ -52,6 +52,10 @@ import java.util.*;
 @Component
 public class PdfReportGenerator {
 
+    private static final String LABEL_EXPENSE = "Chi tiêu";
+    private static final String LABEL_INCOME = "Thu nhập";
+    private static final String LABEL_CASH_FLOW = "Dòng tiền";
+
     private static final DecimalFormat CURRENCY_FORMAT = new DecimalFormat("#,##0 ₫");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
@@ -118,9 +122,14 @@ public class PdfReportGenerator {
             infoTable.setBorder(new SolidBorder(new DeviceRgb(226, 232, 240), 1));
             infoTable.setMarginBottom(12);
 
-            String userName = (user != null && user.getFullName() != null && !user.getFullName().isBlank())
-                    ? user.getFullName()
-                    : (user != null ? user.getUsername() : "N/A");
+            String userName;
+            if (user != null && user.getFullName() != null && !user.getFullName().isBlank()) {
+                userName = user.getFullName();
+            } else if (user != null) {
+                userName = user.getUsername();
+            } else {
+                userName = "N/A";
+            }
             String userEmail = user != null ? user.getEmail() : "";
             String spaceName = space != null ? space.getName() : "Không gian cá nhân";
 
@@ -219,10 +228,10 @@ public class PdfReportGenerator {
             for (Transaction t : transactions) {
                 DeviceRgb bg = (txStt % 2 == 0) ? new DeviceRgb(248, 250, 252) : new DeviceRgb(255, 255, 255);
                 String dateStr = t.getTransactionDate() != null ? t.getTransactionDate().format(DATE_FORMATTER) : "-";
-                String typeStr = t.getType() == TransactionType.INCOME ? "Thu nhập" : (t.getType() == TransactionType.EXPENSE ? "Chi tiêu" : "Chuyển tiền");
-                String catName = t.getCategory() != null ? (t.getCategory().getNameVi() != null ? t.getCategory().getNameVi() : t.getCategory().getName()) : "Khác";
+                String typeStr = resolveTransactionTypeLabel(t.getType());
+                String catName = resolveCategoryName(t);
                 String walletName = t.getWallet() != null ? t.getWallet().getName() : "-";
-                String note = t.getDescription() != null ? t.getDescription() : (t.getNote() != null ? t.getNote() : "");
+                String note = resolveTransactionNote(t);
 
                 txTable.addCell(createDataCell(String.valueOf(txStt++), TextAlignment.CENTER, fontRegular, bg, isUnicode));
                 txTable.addCell(createDataCell(dateStr, TextAlignment.CENTER, fontRegular, bg, isUnicode));
@@ -260,16 +269,16 @@ public class PdfReportGenerator {
             return baos.toByteArray();
         } catch (Exception e) {
             log.error("Lỗi khi xuất báo cáo PDF: {}", e.getMessage(), e);
-            throw new RuntimeException("Lỗi khi tạo tệp PDF báo cáo: " + e.getMessage(), e);
+            throw new IllegalStateException("Lỗi khi tạo tệp PDF báo cáo: " + e.getMessage(), e);
         }
     }
 
     private byte[] generateCashFlowBarChart(BigDecimal totalIncome, BigDecimal totalExpense, BigDecimal netBalance) {
         try {
             DefaultCategoryDataset dataset = new DefaultCategoryDataset();
-            dataset.addValue(totalIncome.doubleValue(), "Dòng tiền", "Thu nhập");
-            dataset.addValue(totalExpense.doubleValue(), "Dòng tiền", "Chi tiêu");
-            dataset.addValue(netBalance.doubleValue(), "Dòng tiền", "Số dư cuối kỳ");
+            dataset.addValue(totalIncome.doubleValue(), LABEL_CASH_FLOW, LABEL_INCOME);
+            dataset.addValue(totalExpense.doubleValue(), LABEL_CASH_FLOW, LABEL_EXPENSE);
+            dataset.addValue(netBalance.doubleValue(), LABEL_CASH_FLOW, "Số dư cuối kỳ");
 
             JFreeChart chart = ChartFactory.createBarChart(
                     "So sánh Dòng tiền Thu - Chi - Số dư (VNĐ)",
@@ -305,8 +314,29 @@ public class PdfReportGenerator {
             return chartOut.toByteArray();
         } catch (Exception e) {
             log.warn("Không thể tạo biểu đồ JFreeChart cho báo cáo PDF: {}", e.getMessage());
-            return null;
+            return new byte[0];
         }
+    }
+
+    private String resolveTransactionTypeLabel(TransactionType type) {
+        if (type == TransactionType.INCOME) return LABEL_INCOME;
+        if (type == TransactionType.EXPENSE) return LABEL_EXPENSE;
+        return "Chuyển tiền";
+    }
+
+    private String resolveCategoryName(Transaction t) {
+        if (t.getCategory() == null) return "Khác";
+        if (t.getCategory().getNameVi() != null && !t.getCategory().getNameVi().isBlank()) {
+            return t.getCategory().getNameVi();
+        }
+        return t.getCategory().getName() != null ? t.getCategory().getName() : "Khác";
+    }
+
+    private String resolveTransactionNote(Transaction t) {
+        if (t.getDescription() != null && !t.getDescription().isBlank()) {
+            return t.getDescription();
+        }
+        return t.getNote() != null ? t.getNote() : "";
     }
 
     private Cell createKpiCell(String label, String value, DeviceRgb bg, DeviceRgb textColor,

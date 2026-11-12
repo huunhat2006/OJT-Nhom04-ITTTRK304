@@ -169,7 +169,7 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenRepository.save(storedToken);
 
         User user = storedToken.getUser();
-        if (!user.getIsActive()) {
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
             throw new BadRequestException("Tài khoản đã bị vô hiệu hóa");
         }
 
@@ -317,7 +317,7 @@ public class AuthServiceImpl implements AuthService {
 
             log.info("New user created via Google OAuth2: {} ({})", user.getUsername(), user.getEmail());
         } else {
-            if (!user.getIsActive()) {
+            if (!Boolean.TRUE.equals(user.getIsActive())) {
                 throw new BadRequestException("Tài khoản đã bị vô hiệu hóa");
             }
             if (picture != null && !picture.equals(user.getAvatarUrl())) {

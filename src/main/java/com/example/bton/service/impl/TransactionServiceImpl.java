@@ -26,11 +26,13 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class TransactionServiceImpl {
+
+    private static final String WALLET_RESOURCE = "Wallet";
+    private static final String TRANSACTION_RESOURCE = "Transaction";
 
     private final TransactionRepository transactionRepository;
     private final FinancialSpaceRepository spaceRepository;
@@ -59,7 +61,7 @@ public class TransactionServiceImpl {
         Wallet wallet;
         if (request.getWalletId() != null) {
             wallet = walletRepository.findById(request.getWalletId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", request.getWalletId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(WALLET_RESOURCE, "id", request.getWalletId()));
             if (!wallet.getUser().getId().equals(userId)) {
                 throw new AccessDeniedException("You don't own this wallet");
             }
@@ -116,7 +118,7 @@ public class TransactionServiceImpl {
 
         // Check budget thresholds for expenses (based on the transaction's own date)
         if (request.getType() == TransactionType.EXPENSE) {
-            checkBudgetThresholds(space, category, amount, userId, request.getTransactionDate());
+            checkBudgetThresholds(space, category, userId, request.getTransactionDate());
         }
 
         return mapToResponse(transaction);
@@ -128,6 +130,7 @@ public class TransactionServiceImpl {
     }
 
     @Transactional(readOnly = true)
+    @SuppressWarnings("java:S107")
     public PageResponse<TransactionResponse> getTransactions(
             Long spaceId, Long userId, TransactionType type,
             Long categoryId, Long walletId, LocalDate startDate, LocalDate endDate,
@@ -143,7 +146,7 @@ public class TransactionServiceImpl {
 
         return PageResponse.<TransactionResponse>builder()
                 .content(transactionPage.getContent().stream()
-                        .map(this::mapToResponse).collect(Collectors.toList()))
+                        .map(this::mapToResponse).toList())
                 .pageNumber(transactionPage.getNumber())
                 .pageSize(transactionPage.getSize())
                 .totalElements(transactionPage.getTotalElements())
@@ -174,7 +177,7 @@ public class TransactionServiceImpl {
 
         return PageResponse.<TransactionResponse>builder()
                 .content(transactionPage.getContent().stream()
-                        .map(this::mapToResponse).collect(Collectors.toList()))
+                        .map(this::mapToResponse).toList())
                 .pageNumber(transactionPage.getNumber())
                 .pageSize(transactionPage.getSize())
                 .totalElements(transactionPage.getTotalElements())
@@ -187,7 +190,7 @@ public class TransactionServiceImpl {
     @Transactional(readOnly = true)
     public TransactionResponse getTransactionById(Long transactionId, Long userId) {
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", transactionId));
+                .orElseThrow(() -> new ResourceNotFoundException(TRANSACTION_RESOURCE, "id", transactionId));
 
         spaceService.verifySpaceAccess(transaction.getSpace().getId(), userId);
         return mapToResponse(transaction);
@@ -196,7 +199,7 @@ public class TransactionServiceImpl {
     @Transactional
     public TransactionResponse updateTransaction(Long transactionId, Long userId, TransactionRequest request) {
         Transaction existingTransaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", transactionId));
+                .orElseThrow(() -> new ResourceNotFoundException(TRANSACTION_RESOURCE, "id", transactionId));
 
         spaceService.verifySpaceAccess(existingTransaction.getSpace().getId(), userId);
         verifyTransactionModifyAccess(existingTransaction, userId);
@@ -219,7 +222,7 @@ public class TransactionServiceImpl {
         // Update wallet reference if changed
         if (request.getWalletId() != null) {
             Wallet newWallet = walletRepository.findById(request.getWalletId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", request.getWalletId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(WALLET_RESOURCE, "id", request.getWalletId()));
             existingTransaction.setWallet(newWallet);
         }
 
@@ -242,7 +245,7 @@ public class TransactionServiceImpl {
                 .orElse(null);
 
         if (budget != null && request.getType() == TransactionType.EXPENSE) {
-            checkBudgetThresholds(existingTransaction.getSpace(), category, amount, userId,
+            checkBudgetThresholds(existingTransaction.getSpace(), category, userId,
                     request.getTransactionDate());
         }
 
@@ -255,7 +258,7 @@ public class TransactionServiceImpl {
     @Transactional
     public void deleteTransaction(Long transactionId, Long userId) {
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction", "id", transactionId));
+                .orElseThrow(() -> new ResourceNotFoundException(TRANSACTION_RESOURCE, "id", transactionId));
 
         spaceService.verifySpaceAccess(transaction.getSpace().getId(), userId);
         verifyTransactionModifyAccess(transaction, userId);
@@ -304,7 +307,7 @@ public class TransactionServiceImpl {
         }
     }
 
-    private void checkBudgetThresholds(FinancialSpace space, Category category, BigDecimal amount,
+    private void checkBudgetThresholds(FinancialSpace space, Category category,
                                        Long userId, LocalDate transactionDate) {
         LocalDate date = transactionDate != null ? transactionDate : LocalDate.now();
         Budget budget = budgetRepository.findBySpaceIdAndCategoryIdAndBudgetMonthAndBudgetYear(
@@ -345,7 +348,7 @@ public class TransactionServiceImpl {
         spaceService.verifySpaceAccess(spaceId, userId);
         Pageable pageable = PageRequest.of(0, limit);
         return transactionRepository.findRecentBySpace(spaceId, pageable)
-                .stream().map(this::mapToResponse).collect(Collectors.toList());
+                .stream().map(this::mapToResponse).toList();
     }
 
     public TransactionResponse mapToResponse(Transaction t) {

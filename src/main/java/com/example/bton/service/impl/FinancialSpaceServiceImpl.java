@@ -20,11 +20,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class FinancialSpaceServiceImpl {
+
+    private static final String FINANCIAL_SPACE = "Financial space";
 
     private final FinancialSpaceRepository spaceRepository;
     private final FamilyMemberRepository memberRepository;
@@ -33,13 +34,13 @@ public class FinancialSpaceServiceImpl {
     @Transactional(readOnly = true)
     public List<FinancialSpaceResponse> getAccessibleSpaces(Long userId) {
         return spaceRepository.findAccessibleSpaces(userId)
-                .stream().map(s -> mapToResponse(s, false)).collect(Collectors.toList());
+                .stream().map(s -> mapToResponse(s, false)).toList();
     }
 
     @Transactional(readOnly = true)
     public FinancialSpaceResponse getSpaceById(Long spaceId, Long userId) {
         FinancialSpace space = spaceRepository.findAccessibleSpaceById(userId, spaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Financial space", "id", spaceId));
+                .orElseThrow(() -> new ResourceNotFoundException(FINANCIAL_SPACE, "id", spaceId));
         return mapToResponse(space, true);
     }
 
@@ -152,7 +153,7 @@ public class FinancialSpaceServiceImpl {
 
     @Transactional
     public void removeMember(Long spaceId, Long memberId, Long requesterId) {
-        FinancialSpace space = getSpaceWithOwnerCheck(spaceId, requesterId);
+        getSpaceWithOwnerCheck(spaceId, requesterId);
         FamilyMember member = memberRepository.findBySpaceIdAndUserIdAndIsActiveTrue(spaceId, memberId)
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found in this space"));
 
@@ -191,10 +192,11 @@ public class FinancialSpaceServiceImpl {
     @Transactional(readOnly = true)
     public List<FamilyMemberResponse> getMembers(Long spaceId, Long userId) {
         // Check access
-        spaceRepository.findAccessibleSpaceById(userId, spaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Financial space", "id", spaceId));
+        if (spaceRepository.findAccessibleSpaceById(userId, spaceId).isEmpty()) {
+            throw new ResourceNotFoundException(FINANCIAL_SPACE, "id", spaceId);
+        }
         return memberRepository.findBySpaceIdAndIsActiveTrue(spaceId)
-                .stream().map(this::mapMemberToResponse).collect(Collectors.toList());
+                .stream().map(this::mapMemberToResponse).toList();
     }
 
     public void verifySpaceAccess(Long spaceId, Long userId) {
@@ -206,7 +208,7 @@ public class FinancialSpaceServiceImpl {
 
     private FinancialSpace getSpaceWithOwnerCheck(Long spaceId, Long userId) {
         FinancialSpace space = spaceRepository.findByIdAndIsActiveTrue(spaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Financial space", "id", spaceId));
+                .orElseThrow(() -> new ResourceNotFoundException(FINANCIAL_SPACE, "id", spaceId));
 
         boolean isOwner = space.getOwner().getId().equals(userId);
         boolean isAdmin = memberRepository.findRoleBySpaceIdAndUserId(spaceId, userId)
@@ -234,7 +236,7 @@ public class FinancialSpaceServiceImpl {
 
         if (includeMembers && space.getType() == SpaceType.FAMILY) {
             builder.members(memberRepository.findBySpaceIdAndIsActiveTrue(space.getId())
-                    .stream().map(this::mapMemberToResponse).collect(Collectors.toList()));
+                    .stream().map(this::mapMemberToResponse).toList());
         }
 
         return builder.build();

@@ -20,11 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class SavingsGoalServiceImpl {
+
+    private static final String SAVINGS_GOAL = "Savings goal";
 
     private final SavingsGoalRepository goalRepository;
     private final FinancialSpaceRepository spaceRepository;
@@ -35,13 +36,13 @@ public class SavingsGoalServiceImpl {
     public List<SavingsGoalResponse> getGoals(Long spaceId, Long userId) {
         spaceService.verifySpaceAccess(spaceId, userId);
         return goalRepository.findBySpaceIdOrderByCreatedAtDesc(spaceId)
-                .stream().map(this::mapToResponse).collect(Collectors.toList());
+                .stream().map(this::mapToResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public SavingsGoalResponse getGoalById(Long goalId, Long userId) {
         SavingsGoal goal = goalRepository.findById(goalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Savings goal", "id", goalId));
+                .orElseThrow(() -> new ResourceNotFoundException(SAVINGS_GOAL, "id", goalId));
         spaceService.verifySpaceAccess(goal.getSpace().getId(), userId);
         return mapToResponse(goal);
     }
@@ -79,7 +80,7 @@ public class SavingsGoalServiceImpl {
     @Transactional
     public SavingsGoalResponse updateGoal(Long goalId, Long userId, SavingsGoalRequest request) {
         SavingsGoal goal = goalRepository.findById(goalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Savings goal", "id", goalId));
+                .orElseThrow(() -> new ResourceNotFoundException(SAVINGS_GOAL, "id", goalId));
         spaceService.verifySpaceAccess(goal.getSpace().getId(), userId);
 
         goal.setName(request.getName());
@@ -97,7 +98,7 @@ public class SavingsGoalServiceImpl {
     public SavingsGoalResponse updateCurrentAmount(Long goalId, Long userId,
                                                     UpdateSavingsAmountRequest request) {
         SavingsGoal goal = goalRepository.findById(goalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Savings goal", "id", goalId));
+                .orElseThrow(() -> new ResourceNotFoundException(SAVINGS_GOAL, "id", goalId));
         spaceService.verifySpaceAccess(goal.getSpace().getId(), userId);
 
         if (goal.getStatus() == GoalStatus.CANCELLED) {
@@ -121,7 +122,7 @@ public class SavingsGoalServiceImpl {
     @Transactional
     public void cancelGoal(Long goalId, Long userId) {
         SavingsGoal goal = goalRepository.findById(goalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Savings goal", "id", goalId));
+                .orElseThrow(() -> new ResourceNotFoundException(SAVINGS_GOAL, "id", goalId));
         spaceService.verifySpaceAccess(goal.getSpace().getId(), userId);
         goal.setStatus(GoalStatus.CANCELLED);
         goalRepository.save(goal);
@@ -130,7 +131,7 @@ public class SavingsGoalServiceImpl {
     @Transactional
     public void deleteGoal(Long goalId, Long userId) {
         SavingsGoal goal = goalRepository.findById(goalId)
-                .orElseThrow(() -> new ResourceNotFoundException("Savings goal", "id", goalId));
+                .orElseThrow(() -> new ResourceNotFoundException(SAVINGS_GOAL, "id", goalId));
         spaceService.verifySpaceAccess(goal.getSpace().getId(), userId);
         goalRepository.delete(goal);
     }
