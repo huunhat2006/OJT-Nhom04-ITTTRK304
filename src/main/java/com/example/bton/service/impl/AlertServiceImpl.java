@@ -41,6 +41,10 @@ import java.util.*;
 @Slf4j
 public class AlertServiceImpl implements AlertService {
 
+    private static final String META_CURRENT_AMOUNT = "currentAmount";
+    private static final String META_SPENT_PERCENT = "spentPercent";
+    private static final String META_BUDGET_ID = "budgetId";
+
     private final BudgetRepository budgetRepository;
     private final TransactionRepository transactionRepository;
     private final RecurringTransactionRepository recurringTransactionRepository;
@@ -74,229 +78,27 @@ public class AlertServiceImpl implements AlertService {
 
         YearMonth ym = YearMonth.of(y, m);
         int totalDays = ym.lengthOfMonth();
-        int daysPassed = isCurrentMonth ? today.getDayOfMonth() : (ym.isBefore(YearMonth.now()) ? totalDays : 1);
+        int daysPassed;
+        if (isCurrentMonth) {
+            daysPassed = today.getDayOfMonth();
+        } else if (ym.isBefore(YearMonth.now())) {
+            daysPassed = totalDays;
+        } else {
+            daysPassed = 1;
+        }
         String nowIso = Instant.now().toString();
 
         List<SpendingAlertResponse> alerts = new ArrayList<>();
 
-        // 1 & 2. Budget Exceeded, Budget Warning, Rapid Spending, Budget Pace Warning
-        List<Budget> budgets = budgetRepository.findBySpaceAndMonthWithCategory(resolvedSpaceId, m, y);
-        for (Budget budget : budgets) {
-            Category category = budget.getCategory();
-            if (category == null) continue;
+        // 1 & 2. Budget Alerts
+        analyzeBudgetAlerts(alerts, resolvedSpaceId, m, y, isCurrentMonth, daysPassed, totalDays, nowIso);
 
-            String categoryName = (category.getNameVi() != null && !category.getNameVi().isBlank())
-                    ? category.getNameVi()
-                    : category.getName();
+        // 3. SPENDING_SPIKE
+        analyzeSpikeAlerts(alerts, resolvedSpaceId, m, y, nowIso);
 
-            BigDecimal budgetAmount = budget.getAmount() != null ? budget.getAmount() : BigDecimal.ZERO;
-            BigDecimal spent = transactionRepository.sumExpenseBySpaceCategoryAndMonth(
-                    resolvedSpaceId, category.getId(), y, m);
-            if (spent == null) spent = BigDecimal.ZERO;
-
-            if (budgetAmount.compareTo(BigDecimal.ZERO) <= 0) continue;
-
-            double spentPercent = spent.multiply(BigDecimal.valueOf(100))
-                    .divide(budgetAmount, 2, RoundingMode.HALF_UP)
-                    .doubleValue();
-
-            double warningThreshold = budget.getWarningThreshold() != null
-                    ? budget.getWarningThreshold().doubleValue()
-                    : 80.0;
-
-            // (a) Chi tiêu vượt ngân sách
-            if (spent.compareTo(budgetAmount) > 0) {
-                Map<String, Object> meta = new LinkedHashMap<>();
-                meta.put("currentAmount", spent);
-                meta.put("budgetAmount", budgetAmount);
-                meta.put("spentPercent", Math.round(spentPercent));
-                meta.put("budgetId", budget.getId());
-
-                alerts.add(SpendingAlertResponse.builder()
-                        .alertType(SpendingAlertType.BUDGET_EXCEEDED)
-                        .severity(AlertSeverity.CRITICAL)
-                        .title("Vượt ngân sách " + categoryName)
-                        .message(String.format("Bạn đã chi %,.0f VNĐ cho %s, vượt %.0f%% ngân sách đã đặt (%,.0f VNĐ).",
-                                spent.doubleValue(), categoryName, spentPercent, budgetAmount.doubleValue()))
-                        .amount(spent)
-                        .threshold(budgetAmount)
-                        .categoryName(categoryName)
-                        .categoryId(category.getId())
-                        .detectedAt(nowIso)
-                        .metadata(meta)
-                        .build());
-            }
-            // (b) Cảnh báo sắp vượt ngân sách
-            else if (spentPercent >= warningThreshold) {
-                Map<String, Object> meta = new LinkedHashMap<>();
-                meta.put("currentAmount", spent);
-                meta.put("budgetAmount", budgetAmount);
-                meta.put("spentPercent", Math.round(spentPercent));
-                meta.put("budgetId", budget.getId());
-                meta.put("warningThreshold", warningThreshold);
-
-                alerts.add(SpendingAlertResponse.builder()
-                        .alertType(SpendingAlertType.BUDGET_WARNING)
-                        .severity(AlertSeverity.MEDIUM)
-                        .title("Sắp vượt ngân sách " + categoryName)
-                        .message(String.format("Bạn đã chi %.0f%% ngân sách %s (%,.0f / %,.0f VNĐ). Hãy cân nhắc chi tiêu thận trọng.",
-                                spentPercent, categoryName, spent.doubleValue(), budgetAmount.doubleValue()))
-                        .amount(spent)
-                        .threshold(budgetAmount)
-                        .categoryName(categoryName)
-                        .categoryId(category.getId())
-                        .detectedAt(nowIso)
-                        .metadata(meta)
-                        .build());
-            }
-
-            // (c) Chi tiêu quá nhanh & Tốc độ chi tiêu (chỉ áp dụng cho tháng hiện tại khi chưa vượt ngân sách)
-            if (isCurrentMonth && daysPassed < totalDays && spent.compareTo(budgetAmount) < 0 && daysPassed > 0) {
-                double dayProgressPercent = ((double) daysPassed / totalDays) * 100.0;
-
-                if (spentPercent >= 65.0 && dayProgressPercent <= 45.0) {
-                    double dailyRate = spent.doubleValue() / daysPassed;
-                    double remainingBudget = budgetAmount.doubleValue() - spent.doubleValue();
-                    int daysUntilOut = (int) Math.round(remainingBudget / dailyRate);
-                    int estimatedRunOutDay = Math.min(totalDays, Math.max(daysPassed + 1, daysPassed + daysUntilOut));
-
-                    Map<String, Object> meta = new LinkedHashMap<>();
-                    meta.put("spentPercent", Math.round(spentPercent));
-                    meta.put("dayProgressPercent", Math.round(dayProgressPercent));
-                    meta.put("daysPassed", daysPassed);
-                    meta.put("daysRemaining", totalDays - daysPassed);
-                    meta.put("estimatedRunOutDay", estimatedRunOutDay);
-                    meta.put("budgetId", budget.getId());
-
-                    alerts.add(SpendingAlertResponse.builder()
-                            .alertType(SpendingAlertType.RAPID_SPENDING)
-                            .severity(AlertSeverity.HIGH)
-                            .title("Chi tiêu quá nhanh trong danh mục " + categoryName)
-                            .message(String.format("Bạn đã chi %.0f%% ngân sách %s nhưng mới qua %.0f%% thời gian trong tháng. Dự kiến sẽ hết ngân sách vào ngày %d.",
-                                    spentPercent, categoryName, dayProgressPercent, estimatedRunOutDay))
-                            .amount(spent)
-                            .threshold(budgetAmount)
-                            .categoryName(categoryName)
-                            .categoryId(category.getId())
-                            .detectedAt(nowIso)
-                            .metadata(meta)
-                            .build());
-                } else if (spentPercent > (dayProgressPercent + 15.0) && spentPercent >= 50.0) {
-                    Map<String, Object> meta = new LinkedHashMap<>();
-                    meta.put("spentPercent", Math.round(spentPercent));
-                    meta.put("dayProgressPercent", Math.round(dayProgressPercent));
-                    meta.put("budgetId", budget.getId());
-
-                    alerts.add(SpendingAlertResponse.builder()
-                            .alertType(SpendingAlertType.BUDGET_PACE_WARNING)
-                            .severity(AlertSeverity.LOW)
-                            .title("Tốc độ chi tiêu " + categoryName + " hơi cao")
-                            .message(String.format("Chi tiêu cho %s đang cao hơn %.0f%% so với tiến độ ngày trong tháng. Theo dõi để tránh vượt ngân sách.",
-                                    categoryName, (spentPercent - dayProgressPercent)))
-                            .amount(spent)
-                            .threshold(budgetAmount)
-                            .categoryName(categoryName)
-                            .categoryId(category.getId())
-                            .detectedAt(nowIso)
-                            .metadata(meta)
-                            .build());
-                }
-            }
-        }
-
-        // 3. Một danh mục có mức chi tăng đột biến (SPENDING_SPIKE)
-        List<Object[]> categoryExpenses = transactionRepository.findExpenseByCategory(resolvedSpaceId, y, m);
-        LocalDate startOfPrev3Months = LocalDate.of(y, m, 1).minusMonths(3);
-        LocalDate endOfPrevMonth = LocalDate.of(y, m, 1).minusDays(1);
-
-        for (Object[] row : categoryExpenses) {
-            Long catId = (Long) row[0];
-            String catNameEn = (String) row[1];
-            String catNameVi = (String) row[2];
-            String catName = (catNameVi != null && !catNameVi.isBlank()) ? catNameVi : catNameEn;
-            BigDecimal currentExpense = (BigDecimal) row[5];
-
-            if (currentExpense == null || currentExpense.compareTo(BigDecimal.valueOf(200_000)) < 0) {
-                continue;
-            }
-
-            BigDecimal prev3MonthsSum = transactionRepository.sumExpenseBySpaceCategoryAndDateRange(
-                    resolvedSpaceId, catId, startOfPrev3Months, endOfPrevMonth);
-            if (prev3MonthsSum == null) prev3MonthsSum = BigDecimal.ZERO;
-
-            double avgPrevMonthly = prev3MonthsSum.doubleValue() / 3.0;
-            if (avgPrevMonthly >= 100_000) {
-                double increase = currentExpense.doubleValue() - avgPrevMonthly;
-                double increasePercent = (increase / avgPrevMonthly) * 100.0;
-
-                if (increasePercent >= 50.0 && increase >= 200_000) {
-                    Map<String, Object> meta = new LinkedHashMap<>();
-                    meta.put("currentAmount", currentExpense);
-                    meta.put("previousAmount", Math.round(avgPrevMonthly));
-                    meta.put("increasePercent", Math.round(increasePercent * 10.0) / 10.0);
-
-                    alerts.add(SpendingAlertResponse.builder()
-                            .alertType(SpendingAlertType.SPENDING_SPIKE)
-                            .severity(AlertSeverity.HIGH)
-                            .title("Chi tiêu " + catName + " tăng đột biến")
-                            .message(String.format("Chi tiêu cho %s tháng này tăng %.0f%% so với trung bình các tháng trước (từ %,.0f VNĐ lên %,.0f VNĐ).",
-                                    catName, increasePercent, avgPrevMonthly, currentExpense.doubleValue()))
-                            .amount(currentExpense)
-                            .threshold(BigDecimal.valueOf(Math.round(avgPrevMonthly)))
-                            .categoryName(catName)
-                            .categoryId(catId)
-                            .detectedAt(nowIso)
-                            .metadata(meta)
-                            .build());
-                }
-            }
-        }
-
-        // 4. Các khoản thanh toán định kỳ sắp đến hạn (RECURRING_PAYMENT_DUE)
+        // 4. RECURRING_PAYMENT_DUE
         if (isCurrentMonth) {
-            LocalDate windowStart = today;
-            LocalDate windowEnd = today.plusDays(7);
-            List<RecurringTransaction> upcoming = recurringTransactionRepository.findUpcomingRecurring(
-                    resolvedSpaceId, windowStart, windowEnd);
-
-            for (RecurringTransaction r : upcoming) {
-                long daysRemaining = ChronoUnit.DAYS.between(today, r.getNextRunDate());
-                AlertSeverity severity = daysRemaining <= 3 ? AlertSeverity.MEDIUM : AlertSeverity.LOW;
-                String itemName = (r.getDescription() != null && !r.getDescription().isBlank())
-                        ? r.getDescription()
-                        : "Khoản thanh toán";
-
-                String dueNotice = daysRemaining == 0 ? "hôm nay" : (daysRemaining + " ngày nữa");
-                String title = (daysRemaining <= 3 ? "" : "Nhắc nhở: ") + itemName + " sắp đến hạn";
-                String msg = String.format("Khoản thanh toán định kỳ \"%s\" với số tiền %,.0f VNĐ sẽ đến hạn trong %s.",
-                        itemName, r.getAmount() != null ? r.getAmount().doubleValue() : 0.0, dueNotice);
-
-                String catName = null;
-                Long catId = null;
-                if (r.getCategory() != null) {
-                    catId = r.getCategory().getId();
-                    catName = (r.getCategory().getNameVi() != null && !r.getCategory().getNameVi().isBlank())
-                            ? r.getCategory().getNameVi()
-                            : r.getCategory().getName();
-                }
-
-                Map<String, Object> meta = new LinkedHashMap<>();
-                meta.put("daysRemaining", daysRemaining);
-                meta.put("recurringTransactionId", r.getId());
-                meta.put("dueDate", r.getNextRunDate().toString());
-
-                alerts.add(SpendingAlertResponse.builder()
-                        .alertType(SpendingAlertType.RECURRING_PAYMENT_DUE)
-                        .severity(severity)
-                        .title(title)
-                        .message(msg)
-                        .amount(r.getAmount())
-                        .categoryName(catName)
-                        .categoryId(catId)
-                        .detectedAt(nowIso)
-                        .metadata(meta)
-                        .build());
-            }
+            analyzeUpcomingRecurringAlerts(alerts, resolvedSpaceId, today, nowIso);
         }
 
         // Sắp xếp cảnh báo: CRITICAL -> HIGH -> MEDIUM -> LOW
@@ -308,6 +110,7 @@ public class AlertServiceImpl implements AlertService {
                 case LOW: return 4;
                 default: return 5;
             }
+        }));
         }));
 
         // Tính điểm sức khỏe tài chính (SpendingHealthScore)
@@ -437,6 +240,246 @@ public class AlertServiceImpl implements AlertService {
                         .isRead(false)
                         .build());
             }
+        }
+    }
+
+    private void analyzeBudgetAlerts(List<SpendingAlertResponse> alerts, Long spaceId,
+                                     int m, int y, boolean isCurrentMonth,
+                                     int daysPassed, int totalDays, String nowIso) {
+        List<Budget> budgets = budgetRepository.findBySpaceAndMonthWithCategory(spaceId, m, y);
+        for (Budget budget : budgets) {
+            evaluateSingleBudget(alerts, budget, spaceId, m, y, isCurrentMonth, daysPassed, totalDays, nowIso);
+        }
+    }
+
+    private void evaluateSingleBudget(List<SpendingAlertResponse> alerts, Budget budget, Long spaceId,
+                                      int m, int y, boolean isCurrentMonth,
+                                      int daysPassed, int totalDays, String nowIso) {
+        Category category = budget.getCategory();
+        if (category == null) return;
+
+        BigDecimal budgetAmount = budget.getAmount() != null ? budget.getAmount() : BigDecimal.ZERO;
+        if (budgetAmount.compareTo(BigDecimal.ZERO) <= 0) return;
+
+        String categoryName = (category.getNameVi() != null && !category.getNameVi().isBlank())
+                ? category.getNameVi()
+                : category.getName();
+
+        BigDecimal spent = transactionRepository.sumExpenseBySpaceCategoryAndMonth(spaceId, category.getId(), y, m);
+        if (spent == null) spent = BigDecimal.ZERO;
+
+        double spentPercent = spent.multiply(BigDecimal.valueOf(100))
+                .divide(budgetAmount, 2, RoundingMode.HALF_UP)
+                .doubleValue();
+
+        double warningThreshold = budget.getWarningThreshold() != null
+                ? budget.getWarningThreshold().doubleValue()
+                : 80.0;
+
+        if (spent.compareTo(budgetAmount) > 0) {
+            addBudgetExceededAlert(alerts, categoryName, category.getId(), spent, budgetAmount, spentPercent, budget.getId(), nowIso);
+        } else if (spentPercent >= warningThreshold) {
+            addBudgetWarningAlert(alerts, categoryName, category.getId(), spent, budgetAmount, spentPercent, warningThreshold, budget.getId(), nowIso);
+        }
+
+        if (isCurrentMonth && daysPassed < totalDays && spent.compareTo(budgetAmount) < 0 && daysPassed > 0) {
+            evaluatePaceAlert(alerts, categoryName, category.getId(), spent, budgetAmount, spentPercent, daysPassed, totalDays, budget.getId(), nowIso);
+        }
+    }
+
+    private void addBudgetExceededAlert(List<SpendingAlertResponse> alerts, String categoryName, Long categoryId,
+                                        BigDecimal spent, BigDecimal budgetAmount, double spentPercent, Long budgetId, String nowIso) {
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put(META_CURRENT_AMOUNT, spent);
+        meta.put("budgetAmount", budgetAmount);
+        meta.put(META_SPENT_PERCENT, Math.round(spentPercent));
+        meta.put(META_BUDGET_ID, budgetId);
+
+        alerts.add(SpendingAlertResponse.builder()
+                .alertType(SpendingAlertType.BUDGET_EXCEEDED)
+                .severity(AlertSeverity.CRITICAL)
+                .title("Vượt ngân sách " + categoryName)
+                .message(String.format("Bạn đã chi %,.0f VNĐ cho %s, vượt %.0f%% ngân sách đã đặt (%,.0f VNĐ).",
+                        spent.doubleValue(), categoryName, spentPercent, budgetAmount.doubleValue()))
+                .amount(spent)
+                .threshold(budgetAmount)
+                .categoryName(categoryName)
+                .categoryId(categoryId)
+                .detectedAt(nowIso)
+                .metadata(meta)
+                .build());
+    }
+
+    private void addBudgetWarningAlert(List<SpendingAlertResponse> alerts, String categoryName, Long categoryId,
+                                       BigDecimal spent, BigDecimal budgetAmount, double spentPercent, double warningThreshold, Long budgetId, String nowIso) {
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put(META_CURRENT_AMOUNT, spent);
+        meta.put("budgetAmount", budgetAmount);
+        meta.put(META_SPENT_PERCENT, Math.round(spentPercent));
+        meta.put(META_BUDGET_ID, budgetId);
+        meta.put("warningThreshold", warningThreshold);
+
+        alerts.add(SpendingAlertResponse.builder()
+                .alertType(SpendingAlertType.BUDGET_WARNING)
+                .severity(AlertSeverity.MEDIUM)
+                .title("Sắp vượt ngân sách " + categoryName)
+                .message(String.format("Bạn đã chi %.0f%% ngân sách %s (%,.0f / %,.0f VNĐ). Hãy cân nhắc chi tiêu thận trọng.",
+                        spentPercent, categoryName, spent.doubleValue(), budgetAmount.doubleValue()))
+                .amount(spent)
+                .threshold(budgetAmount)
+                .categoryName(categoryName)
+                .categoryId(categoryId)
+                .detectedAt(nowIso)
+                .metadata(meta)
+                .build());
+    }
+
+    private void evaluatePaceAlert(List<SpendingAlertResponse> alerts, String categoryName, Long categoryId,
+                                   BigDecimal spent, BigDecimal budgetAmount, double spentPercent,
+                                   int daysPassed, int totalDays, Long budgetId, String nowIso) {
+        double dayProgressPercent = ((double) daysPassed / totalDays) * 100.0;
+
+        if (spentPercent >= 65.0 && dayProgressPercent <= 45.0) {
+            double dailyRate = spent.doubleValue() / daysPassed;
+            double remainingBudget = budgetAmount.doubleValue() - spent.doubleValue();
+            int daysUntilOut = (int) Math.round(remainingBudget / dailyRate);
+            int estimatedRunOutDay = Math.min(totalDays, Math.max(daysPassed + 1, daysPassed + daysUntilOut));
+
+            Map<String, Object> meta = new LinkedHashMap<>();
+            meta.put(META_SPENT_PERCENT, Math.round(spentPercent));
+            meta.put("dayProgressPercent", Math.round(dayProgressPercent));
+            meta.put("daysPassed", daysPassed);
+            meta.put("daysRemaining", totalDays - daysPassed);
+            meta.put("estimatedRunOutDay", estimatedRunOutDay);
+            meta.put(META_BUDGET_ID, budgetId);
+
+            alerts.add(SpendingAlertResponse.builder()
+                    .alertType(SpendingAlertType.RAPID_SPENDING)
+                    .severity(AlertSeverity.HIGH)
+                    .title("Chi tiêu quá nhanh trong danh mục " + categoryName)
+                    .message(String.format("Bạn đã chi %.0f%% ngân sách %s nhưng mới qua %.0f%% thời gian trong tháng. Dự kiến sẽ hết ngân sách vào ngày %d.",
+                            spentPercent, categoryName, dayProgressPercent, estimatedRunOutDay))
+                    .amount(spent)
+                    .threshold(budgetAmount)
+                    .categoryName(categoryName)
+                    .categoryId(categoryId)
+                    .detectedAt(nowIso)
+                    .metadata(meta)
+                    .build());
+        } else if (spentPercent > (dayProgressPercent + 15.0) && spentPercent >= 50.0) {
+            Map<String, Object> meta = new LinkedHashMap<>();
+            meta.put(META_SPENT_PERCENT, Math.round(spentPercent));
+            meta.put("dayProgressPercent", Math.round(dayProgressPercent));
+            meta.put(META_BUDGET_ID, budgetId);
+
+            alerts.add(SpendingAlertResponse.builder()
+                    .alertType(SpendingAlertType.BUDGET_PACE_WARNING)
+                    .severity(AlertSeverity.LOW)
+                    .title("Tốc độ chi tiêu " + categoryName + " hơi cao")
+                    .message(String.format("Chi tiêu cho %s đang cao hơn %.0f%% so với tiến độ ngày trong tháng. Theo dõi để tránh vượt ngân sách.",
+                            categoryName, (spentPercent - dayProgressPercent)))
+                    .amount(spent)
+                    .threshold(budgetAmount)
+                    .categoryName(categoryName)
+                    .categoryId(categoryId)
+                    .detectedAt(nowIso)
+                    .metadata(meta)
+                    .build());
+        }
+    }
+
+    private void analyzeSpikeAlerts(List<SpendingAlertResponse> alerts, Long spaceId, int m, int y, String nowIso) {
+        List<Object[]> categoryExpenses = transactionRepository.findExpenseByCategory(spaceId, y, m);
+        LocalDate startOfPrev3Months = LocalDate.of(y, m, 1).minusMonths(3);
+        LocalDate endOfPrevMonth = LocalDate.of(y, m, 1).minusDays(1);
+
+        for (Object[] row : categoryExpenses) {
+            Long catId = (Long) row[0];
+            String catNameEn = (String) row[1];
+            String catNameVi = (String) row[2];
+            String catName = (catNameVi != null && !catNameVi.isBlank()) ? catNameVi : catNameEn;
+            BigDecimal currentExpense = (BigDecimal) row[5];
+
+            if (currentExpense == null || currentExpense.compareTo(BigDecimal.valueOf(200_000)) < 0) {
+                continue;
+            }
+
+            BigDecimal prev3MonthsSum = transactionRepository.sumExpenseBySpaceCategoryAndDateRange(
+                    spaceId, catId, startOfPrev3Months, endOfPrevMonth);
+            if (prev3MonthsSum == null) prev3MonthsSum = BigDecimal.ZERO;
+
+            double avgPrevMonthly = prev3MonthsSum.doubleValue() / 3.0;
+            if (avgPrevMonthly >= 100_000) {
+                double increase = currentExpense.doubleValue() - avgPrevMonthly;
+                double increasePercent = (increase / avgPrevMonthly) * 100.0;
+
+                if (increasePercent >= 50.0 && increase >= 200_000) {
+                    Map<String, Object> meta = new LinkedHashMap<>();
+                    meta.put(META_CURRENT_AMOUNT, currentExpense);
+                    meta.put("previousAmount", Math.round(avgPrevMonthly));
+                    meta.put("increasePercent", Math.round(increasePercent * 10.0) / 10.0);
+
+                    alerts.add(SpendingAlertResponse.builder()
+                            .alertType(SpendingAlertType.SPENDING_SPIKE)
+                            .severity(AlertSeverity.HIGH)
+                            .title("Chi tiêu " + catName + " tăng đột biến")
+                            .message(String.format("Chi tiêu cho %s tháng này tăng %.0f%% so với trung bình các tháng trước (từ %,.0f VNĐ lên %,.0f VNĐ).",
+                                    catName, increasePercent, avgPrevMonthly, currentExpense.doubleValue()))
+                            .amount(currentExpense)
+                            .threshold(BigDecimal.valueOf(Math.round(avgPrevMonthly)))
+                            .categoryName(catName)
+                            .categoryId(catId)
+                            .detectedAt(nowIso)
+                            .metadata(meta)
+                            .build());
+                }
+            }
+        }
+    }
+
+    private void analyzeUpcomingRecurringAlerts(List<SpendingAlertResponse> alerts, Long spaceId, LocalDate today, String nowIso) {
+        LocalDate windowStart = today;
+        LocalDate windowEnd = today.plusDays(7);
+        List<RecurringTransaction> upcoming = recurringTransactionRepository.findUpcomingRecurring(
+                spaceId, windowStart, windowEnd);
+
+        for (RecurringTransaction r : upcoming) {
+            long daysRemaining = ChronoUnit.DAYS.between(today, r.getNextRunDate());
+            AlertSeverity severity = daysRemaining <= 3 ? AlertSeverity.MEDIUM : AlertSeverity.LOW;
+            String itemName = (r.getDescription() != null && !r.getDescription().isBlank())
+                    ? r.getDescription()
+                    : "Khoản thanh toán";
+
+            String dueNotice = daysRemaining == 0 ? "hôm nay" : (daysRemaining + " ngày nữa");
+            String title = (daysRemaining <= 3 ? "" : "Nhắc nhở: ") + itemName + " sắp đến hạn";
+            String msg = String.format("Khoản thanh toán định kỳ \"%s\" với số tiền %,.0f VNĐ sẽ đến hạn trong %s.",
+                    itemName, r.getAmount() != null ? r.getAmount().doubleValue() : 0.0, dueNotice);
+
+            String catName = null;
+            Long catId = null;
+            if (r.getCategory() != null) {
+                catId = r.getCategory().getId();
+                catName = (r.getCategory().getNameVi() != null && !r.getCategory().getNameVi().isBlank())
+                        ? r.getCategory().getNameVi()
+                        : r.getCategory().getName();
+            }
+
+            Map<String, Object> meta = new LinkedHashMap<>();
+            meta.put("daysRemaining", daysRemaining);
+            meta.put("recurringTransactionId", r.getId());
+            meta.put("dueDate", r.getNextRunDate().toString());
+
+            alerts.add(SpendingAlertResponse.builder()
+                    .alertType(SpendingAlertType.RECURRING_PAYMENT_DUE)
+                    .severity(severity)
+                    .title(title)
+                    .message(msg)
+                    .amount(r.getAmount())
+                    .categoryName(catName)
+                    .categoryId(catId)
+                    .detectedAt(nowIso)
+                    .metadata(meta)
+                    .build());
         }
     }
 }

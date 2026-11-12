@@ -42,3 +42,4 @@ volumes:
   sonarqube_extensions:
   sonarqube_logs:
   postgres_data:
+

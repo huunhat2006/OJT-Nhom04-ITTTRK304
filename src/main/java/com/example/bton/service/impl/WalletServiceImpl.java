@@ -25,11 +25,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class WalletServiceImpl {
+
+    private static final String WALLET_RESOURCE = "Wallet";
+    private static final String NOT_WALLET_OWNER = "You don't own this wallet";
 
     private final WalletRepository walletRepository;
     private final UserRepository userRepository;
@@ -42,18 +44,18 @@ public class WalletServiceImpl {
         if (spaceId != null) {
             spaceService.verifySpaceAccess(spaceId, userId);
             return walletRepository.findBySpaceIdAndIsActiveTrue(spaceId)
-                    .stream().map(this::mapToResponse).collect(Collectors.toList());
+                    .stream().map(this::mapToResponse).toList();
         }
         return walletRepository.findByUserIdAndIsActiveTrue(userId)
-                .stream().map(this::mapToResponse).collect(Collectors.toList());
+                .stream().map(this::mapToResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public WalletResponse getWalletById(Long walletId, Long userId) {
         Wallet wallet = walletRepository.findById(walletId)
-                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", walletId));
+                .orElseThrow(() -> new ResourceNotFoundException(WALLET_RESOURCE, "id", walletId));
         if (!wallet.getUser().getId().equals(userId)) {
-            throw new AccessDeniedException("You don't own this wallet");
+            throw new AccessDeniedException(NOT_WALLET_OWNER);
         }
         if (wallet.getSpace() != null) {
             spaceService.verifySpaceAccess(wallet.getSpace().getId(), userId);
@@ -81,7 +83,7 @@ public class WalletServiceImpl {
                 .currency(request.getCurrency() != null ? request.getCurrency() : "VND")
                 .balance(request.getInitialBalance() != null ? request.getInitialBalance() : BigDecimal.ZERO)
                 .openingBalance(request.getInitialBalance() != null ? request.getInitialBalance() : BigDecimal.ZERO)
-                .isShared(request.getIsShared() != null ? request.getIsShared() : false)
+                .isShared(Boolean.TRUE.equals(request.getIsShared()))
                 .isActive(true)
                 .build();
 
@@ -93,9 +95,9 @@ public class WalletServiceImpl {
     @Transactional
     public WalletResponse updateWallet(Long walletId, Long userId, WalletRequest request) {
         Wallet wallet = walletRepository.findById(walletId)
-                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", walletId));
+                .orElseThrow(() -> new ResourceNotFoundException(WALLET_RESOURCE, "id", walletId));
         if (!wallet.getUser().getId().equals(userId)) {
-            throw new AccessDeniedException("You don't own this wallet");
+            throw new AccessDeniedException(NOT_WALLET_OWNER);
         }
         if (wallet.getSpace() != null) {
             spaceService.verifySpaceAccess(wallet.getSpace().getId(), userId);
@@ -113,9 +115,9 @@ public class WalletServiceImpl {
     @Transactional
     public void deleteWallet(Long walletId, Long userId) {
         Wallet wallet = walletRepository.findById(walletId)
-                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", walletId));
+                .orElseThrow(() -> new ResourceNotFoundException(WALLET_RESOURCE, "id", walletId));
         if (!wallet.getUser().getId().equals(userId)) {
-            throw new AccessDeniedException("You don't own this wallet");
+            throw new AccessDeniedException(NOT_WALLET_OWNER);
         }
         if (wallet.getSpace() != null) {
             spaceService.verifySpaceAccess(wallet.getSpace().getId(), userId);
@@ -133,9 +135,9 @@ public class WalletServiceImpl {
     @Transactional
     public WalletResponse transferBetweenWallets(Long userId, WalletTransferRequest request) {
         Wallet fromWallet = walletRepository.findById(request.getFromWalletId())
-                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", request.getFromWalletId()));
+                .orElseThrow(() -> new ResourceNotFoundException(WALLET_RESOURCE, "id", request.getFromWalletId()));
         Wallet toWallet = walletRepository.findById(request.getToWalletId())
-                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "id", request.getToWalletId()));
+                .orElseThrow(() -> new ResourceNotFoundException(WALLET_RESOURCE, "id", request.getToWalletId()));
 
         if (!fromWallet.getUser().getId().equals(userId)) {
             throw new AccessDeniedException("You don't own the source wallet");

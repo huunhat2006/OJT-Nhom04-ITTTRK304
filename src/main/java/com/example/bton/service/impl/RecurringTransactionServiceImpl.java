@@ -102,17 +102,20 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
         spaceService.verifySpaceAccess(space.getId(), userId);
 
         Transaction template = loadTemplate(request.getTemplateTransactionId(), space.getId(), userId);
-        TransactionType type = request.getType() != null
-                ? request.getType()
-                : (template != null ? template.getType() : null);
+        TransactionType type = request.getType();
+        if (type == null && template != null) {
+            type = template.getType();
+        }
         Category category = resolveCategory(request.getCategoryId(), template);
-        BigDecimal amount = request.getAmount() != null
-                ? request.getAmount()
-                : (template != null ? template.getAmount() : null);
+        BigDecimal amount = request.getAmount();
+        if (amount == null && template != null) {
+            amount = template.getAmount();
+        }
         Wallet wallet = resolveWallet(request.getWalletId(), template, userId);
-        String description = request.getDescription() != null
-                ? request.getDescription()
-                : (template != null ? template.getDescription() : null);
+        String description = request.getDescription();
+        if (description == null && template != null) {
+            description = template.getDescription();
+        }
 
         validateFields(type, category, amount, userId);
         validateDates(request.getStartDate(), request.getEndDate(), request.getNextRunDate());
@@ -163,24 +166,20 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
                 ? loadTemplate(request.getTemplateTransactionId(), space.getId(), userId)
                 : null;
 
-        TransactionType type = request.getType() != null
-                ? request.getType()
-                : (template != null ? template.getType() : recurring.getType());
-        Category category = request.getCategoryId() != null
-                ? categoryRepository.findById(request.getCategoryId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", request.getCategoryId()))
-                : (template != null && template.getCategory() != null
-                    ? template.getCategory()
-                    : recurring.getCategory());
-        BigDecimal amount = request.getAmount() != null
-                ? request.getAmount()
-                : (template != null ? template.getAmount() : recurring.getAmount());
-        Wallet wallet = request.getWalletId() != null
-                ? loadWallet(request.getWalletId(), userId)
-                : (template != null ? template.getWallet() : recurring.getWallet());
-        String description = request.getDescription() != null
-                ? request.getDescription()
-                : (template != null ? template.getDescription() : recurring.getDescription());
+        TransactionType type = request.getType();
+        if (type == null) {
+            type = template != null ? template.getType() : recurring.getType();
+        }
+        Category category = resolveUpdateCategory(request.getCategoryId(), template, recurring);
+        BigDecimal amount = request.getAmount();
+        if (amount == null) {
+            amount = template != null ? template.getAmount() : recurring.getAmount();
+        }
+        Wallet wallet = resolveUpdateWallet(request.getWalletId(), template, recurring, userId);
+        String description = request.getDescription();
+        if (description == null) {
+            description = template != null ? template.getDescription() : recurring.getDescription();
+        }
         RecurringFrequency frequency = request.getFrequency() != null
                 ? request.getFrequency()
                 : recurring.getFrequency();
@@ -191,14 +190,7 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
         validateFields(type, category, amount, userId);
         validateDates(request.getStartDate(), request.getEndDate(), request.getNextRunDate());
 
-        LocalDate nextRunDate = request.getNextRunDate() != null
-                ? request.getNextRunDate()
-                : recurring.getNextRunDate();
-        if (nextRunDate == null
-                || !request.getStartDate().equals(recurring.getStartDate())
-                || !frequency.equals(recurring.getFrequency())) {
-            nextRunDate = request.getStartDate();
-        }
+        LocalDate nextRunDate = calculateNextRunDate(request, recurring, frequency);
 
         recurring.setSpace(space);
         if (template != null) {
@@ -460,6 +452,36 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
         return wallet;
     }
 
+    private Category resolveUpdateCategory(Long categoryId, Transaction template, RecurringTransaction recurring) {
+        if (categoryId != null) {
+            return categoryRepository.findById(categoryId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
+        }
+        if (template != null && template.getCategory() != null) {
+            return template.getCategory();
+        }
+        return recurring.getCategory();
+    }
+
+    private Wallet resolveUpdateWallet(Long walletId, Transaction template, RecurringTransaction recurring, Long userId) {
+        if (walletId != null) {
+            return loadWallet(walletId, userId);
+        }
+        return template != null ? template.getWallet() : recurring.getWallet();
+    }
+
+    private LocalDate calculateNextRunDate(RecurringTransactionRequest request, RecurringTransaction recurring, RecurringFrequency frequency) {
+        LocalDate nextRunDate = request.getNextRunDate() != null
+                ? request.getNextRunDate()
+                : recurring.getNextRunDate();
+        if (nextRunDate == null
+                || !request.getStartDate().equals(recurring.getStartDate())
+                || !frequency.equals(recurring.getFrequency())) {
+            nextRunDate = request.getStartDate();
+        }
+        return nextRunDate;
+    }
+
     private void validateFields(TransactionType type, Category category, BigDecimal amount, Long userId) {
         if (type == null) {
             throw new BadRequestException("Transaction type is required");
@@ -481,6 +503,10 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
             throw new AccessDeniedException("You don't own this category");
         }
 
+        validateCategoryMatch(type, category);
+    }
+
+    private void validateCategoryMatch(TransactionType type, Category category) {
         CategoryType categoryType = category.getType();
         if (categoryType != null && categoryType != CategoryType.BOTH) {
             if (type == TransactionType.INCOME && categoryType != CategoryType.INCOME) {

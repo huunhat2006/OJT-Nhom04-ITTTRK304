@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -90,7 +89,7 @@ public class AdminServiceImpl {
         Page<User> userPage = userRepository.searchUsers(keyword, role, isActive, pageable);
         return PageResponse.<UserResponse>builder()
                 .content(userPage.getContent().stream()
-                        .map(userService::mapToResponse).collect(Collectors.toList()))
+                        .map(userService::mapToResponse).toList())
                 .pageNumber(userPage.getNumber())
                 .pageSize(userPage.getSize())
                 .totalElements(userPage.getTotalElements())
@@ -114,12 +113,12 @@ public class AdminServiceImpl {
         if (user.getRole() == Role.ADMIN) {
             throw new BadRequestException("Cannot disable another admin account");
         }
-        user.setIsActive(!user.getIsActive());
+        user.setIsActive(!Boolean.TRUE.equals(user.getIsActive()));
         User saved = userRepository.save(user);
 
         // Log audit
         saveAuditLog(adminId,
-                user.getIsActive() ? "ENABLE_USER" : "DISABLE_USER",
+                Boolean.TRUE.equals(user.getIsActive()) ? "ENABLE_USER" : "DISABLE_USER",
                 "User", userId,
                 "Admin " + adminId + " changed status of user " + userId);
 
@@ -133,7 +132,7 @@ public class AdminServiceImpl {
         Page<AuditLog> logPage = auditLogRepository.searchLogs(adminId, action, pageable);
         return PageResponse.<AuditLogResponse>builder()
                 .content(logPage.getContent().stream()
-                        .map(this::mapAuditToResponse).collect(Collectors.toList()))
+                        .map(this::mapAuditToResponse).toList())
                 .pageNumber(logPage.getNumber())
                 .pageSize(logPage.getSize())
                 .totalElements(logPage.getTotalElements())

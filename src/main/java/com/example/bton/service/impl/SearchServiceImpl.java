@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -58,7 +57,7 @@ public class SearchServiceImpl implements SearchService {
                     .getContent()
                     .stream()
                     .map(TransactionServiceImpl::mapToResponseStatic)
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         // 2. Search matching categories (System + Personal, Limit top 10)
@@ -68,7 +67,7 @@ public class SearchServiceImpl implements SearchService {
                     .stream()
                     .limit(10)
                     .map(CategoryServiceImpl::mapCategoryStatic)
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         // 3. Search matching savings goals in this space (Limit top 10)
@@ -78,7 +77,7 @@ public class SearchServiceImpl implements SearchService {
                     .stream()
                     .limit(10)
                     .map(savingsGoalService::mapToResponse)
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         return GlobalSearchResponse.builder()

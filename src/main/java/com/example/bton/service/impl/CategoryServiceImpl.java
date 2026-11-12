@@ -16,11 +16,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class CategoryServiceImpl {
+
+    private static final String CATEGORY_RESOURCE = "Category";
 
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
@@ -28,19 +29,19 @@ public class CategoryServiceImpl {
     @Transactional(readOnly = true)
     public List<CategoryResponse> getAvailableCategories(Long userId) {
         return categoryRepository.findAvailableForUser(userId)
-                .stream().map(this::mapToResponse).collect(Collectors.toList());
+                .stream().map(this::mapToResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public List<CategoryResponse> getCategoriesByType(Long userId, CategoryType type) {
         return categoryRepository.findAvailableForUserByType(userId, type)
-                .stream().map(this::mapToResponse).collect(Collectors.toList());
+                .stream().map(this::mapToResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public List<CategoryResponse> getSystemCategories() {
         return categoryRepository.findByIsSystemTrue()
-                .stream().map(this::mapToResponse).collect(Collectors.toList());
+                .stream().map(this::mapToResponse).toList();
     }
 
     @Transactional
@@ -69,9 +70,9 @@ public class CategoryServiceImpl {
     @Transactional
     public CategoryResponse updateCategory(Long categoryId, Long userId, CategoryRequest request) {
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
+                .orElseThrow(() -> new ResourceNotFoundException(CATEGORY_RESOURCE, "id", categoryId));
 
-        if (category.getIsSystem()) {
+        if (Boolean.TRUE.equals(category.getIsSystem())) {
             throw new AccessDeniedException("Cannot modify system categories");
         }
         if (!category.getUser().getId().equals(userId)) {
@@ -90,9 +91,9 @@ public class CategoryServiceImpl {
     @Transactional
     public void deleteCategory(Long categoryId, Long userId) {
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
+                .orElseThrow(() -> new ResourceNotFoundException(CATEGORY_RESOURCE, "id", categoryId));
 
-        if (category.getIsSystem()) {
+        if (Boolean.TRUE.equals(category.getIsSystem())) {
             throw new AccessDeniedException("Cannot delete system categories");
         }
         if (!category.getUser().getId().equals(userId)) {
@@ -107,7 +108,7 @@ public class CategoryServiceImpl {
     @Transactional
     public CategoryResponse adminUpdateCategory(Long categoryId, CategoryRequest request) {
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
+                .orElseThrow(() -> new ResourceNotFoundException(CATEGORY_RESOURCE, "id", categoryId));
         category.setName(request.getName().trim());
         if (request.getNameVi() != null) category.setNameVi(request.getNameVi().trim());
         if (request.getType() != null) category.setType(request.getType());
@@ -136,8 +137,8 @@ public class CategoryServiceImpl {
     @Transactional
     public void adminToggleCategory(Long categoryId) {
         Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
-        category.setIsActive(!category.getIsActive());
+                .orElseThrow(() -> new ResourceNotFoundException(CATEGORY_RESOURCE, "id", categoryId));
+        category.setIsActive(!Boolean.TRUE.equals(category.getIsActive()));
         categoryRepository.save(category);
     }
 

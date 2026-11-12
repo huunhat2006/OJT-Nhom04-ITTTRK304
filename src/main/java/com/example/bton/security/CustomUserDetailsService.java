@@ -20,11 +20,10 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
         User user = userRepository.findByUsernameOrEmail(usernameOrEmail, usernameOrEmail)
-                .orElseThrow(() -> new UsernameNotFoundException(
-                        "User not found with username or email: " + usernameOrEmail));
+                .orElseThrow(() -> new UsernameNotFoundException("Invalid username or password"));
 
-        if (!user.getIsActive()) {
-            throw new UsernameNotFoundException("Account is disabled: " + usernameOrEmail);
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            throw new UsernameNotFoundException("Account is disabled or inactive");
         }
 
         return UserPrincipal.create(user);
@@ -35,7 +34,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with id: " + id));
 
-        if (!user.getIsActive()) {
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
             throw new UsernameNotFoundException("Account is disabled");
         }
 

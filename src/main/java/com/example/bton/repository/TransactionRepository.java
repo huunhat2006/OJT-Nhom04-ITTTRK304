@@ -56,6 +56,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             AND (:endDate IS NULL OR t.transactionDate <= :endDate)
             AND (:keyword IS NULL OR LOWER(t.description) LIKE LOWER(CONCAT('%', :keyword, '%')))
             """)
+    @SuppressWarnings("java:S107")
     Page<Transaction> findBySpaceWithFilters(
             @Param("spaceId") Long spaceId,
             @Param("type") TransactionType type,
