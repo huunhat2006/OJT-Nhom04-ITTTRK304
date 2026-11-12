@@ -23,6 +23,7 @@ export default function Transactions() {
   useEffect(() => {
     if (currentSpace) {
       fetchTransactions();
+      fetchCategories();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSpace, filters]);
