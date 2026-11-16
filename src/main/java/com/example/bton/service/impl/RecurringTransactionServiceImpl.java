@@ -339,11 +339,14 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
             // Gửi thông báo real-time khi giao dịch định kỳ được tự động ghi nhận
             try {
                 String amountStr = String.format("%,.0f VNĐ", recurring.getAmount().doubleValue());
+                String recName = recurring.getDescription() != null && !recurring.getDescription().isBlank()
+                        ? recurring.getDescription()
+                        : (recurring.getCategory() != null ? recurring.getCategory().getName() : "Giao dịch #" + recurring.getId());
                 notificationService.send(
                         recurring.getUser().getId(),
-                        "🔄 Tự động thực hiện định kỳ: " + recurring.getName(),
+                        "🔄 Tự động thực hiện định kỳ: " + recName,
                         "Khoản " + (recurring.getType() == TransactionType.EXPENSE ? "chi" : "thu") +
-                                " định kỳ '" + recurring.getName() + "' với số tiền " + amountStr +
+                                " định kỳ '" + recName + "' với số tiền " + amountStr +
                                 " đã được hệ thống tự động ghi nhận vào ví thành công.",
                         com.example.bton.enums.NotificationType.RECURRING_DUE,
                         recurring.getId(),
