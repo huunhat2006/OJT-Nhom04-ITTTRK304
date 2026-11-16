@@ -1,6 +1,6 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useEffect, useState } from 'react';
-import { User, Lock, Wallet, Save, Plus, Home, Palette, Sun, Moon, Check } from 'lucide-react';
+import { User, Lock, Wallet, Save, Plus, Home, Palette, Sun, Moon, Check, Eye, EyeOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/authStore';
 import { useSpaceStore } from '../../store/spaceStore';
@@ -95,6 +95,15 @@ export default function Settings() {
     confirmPassword: '',
   });
 
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Nhận diện tài khoản Google chưa thiết lập mật khẩu riêng
+  const isGoogleWithoutPassword =
+    user?.hasPassword === false ||
+    (user?.hasPassword !== true && Boolean(user?.avatarUrl?.includes('googleusercontent.com')));
+
   const [profileErrors, setProfileErrors] = useState({
     fullName: '',
     email: '',
@@ -136,7 +145,7 @@ export default function Settings() {
     };
 
     // Chỉ validate currentPassword nếu user đã có mật khẩu
-    if (user?.hasPassword !== false) {
+    if (!isGoogleWithoutPassword) {
       if (!passwordData.currentPassword) {
         newErrors.currentPassword = t('auth.errors.loginPasswordRequired');
       }
@@ -153,7 +162,7 @@ export default function Settings() {
     if (!passwordData.confirmPassword) {
       newErrors.confirmPassword = t('settings.password.confirm');
     } else if (passwordData.newPassword !== passwordData.confirmPassword) {
-      newErrors.confirmPassword = t('auth.errors.passwordInvalid');
+      newErrors.confirmPassword = t('settings.password.mismatch');
     }
 
     setPasswordErrors(newErrors);
@@ -190,17 +199,20 @@ export default function Settings() {
     try {
       const payload: any = { newPassword: passwordData.newPassword };
       // Chỉ gửi currentPassword nếu user đã có mật khẩu
-      if (user?.hasPassword !== false) {
+      if (!isGoogleWithoutPassword) {
         payload.currentPassword = passwordData.currentPassword;
       }
       await api.put('/auth/change-password', payload);
       toast.success(
-        user?.hasPassword === false
-          ? 'Thiết lập mật khẩu thành công! Bạn có thể đăng nhập bằng email/mật khẩu.'
+        isGoogleWithoutPassword
+          ? t('settings.password.setSuccess')
           : t('settings.password.success')
       );
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setPasswordErrors({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
       // Refresh user info để cập nhật hasPassword = true
       const { data } = await api.get('/auth/me');
       updateUser(data);
@@ -227,7 +239,11 @@ export default function Settings() {
 
   const tabs = [
     { id: 'profile', label: t('settings.tabs.profile'), icon: User },
-    { id: 'password', label: t('settings.tabs.password'), icon: Lock },
+    {
+      id: 'password',
+      label: isGoogleWithoutPassword ? t('settings.password.setTitle') : t('settings.tabs.password'),
+      icon: Lock,
+    },
     { id: 'spaces', label: t('settings.tabs.spaces'), icon: Wallet },
     { id: 'appearance', label: t('settings.tabs.appearance'), icon: Palette },
   ];
@@ -334,17 +350,17 @@ export default function Settings() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                  {user?.hasPassword === false
-                    ? 'Thiết lập mật khẩu'
+                  {isGoogleWithoutPassword
+                    ? t('settings.password.setTitle')
                     : t('settings.password.title')}
                 </h2>
-                {user?.hasPassword === false && (
+                {isGoogleWithoutPassword && (
                   <div className="mt-3 flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
                     <svg className="w-5 h-5 text-blue-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <p className="text-sm text-blue-700 dark:text-blue-300">
-                      Tài khoản của bạn hiện đang đăng nhập qua <strong>Google</strong>. Bạn có thể thiết lập mật khẩu riêng để đăng nhập bằng email/mật khẩu sau này.
+                      {t('settings.password.setSubtitle')}
                     </p>
                   </div>
                 )}
@@ -352,17 +368,33 @@ export default function Settings() {
 
               <form onSubmit={handleChangePassword} className="space-y-6">
                 {/* Chỉ hiện ô mật khẩu hiện tại nếu user đã có mật khẩu */}
-                {user?.hasPassword !== false && (
+                {!isGoogleWithoutPassword && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       {t('settings.password.current')} <span className="text-danger">*</span>
                     </label>
-                    <input
-                      type="password"
-                      value={passwordData.currentPassword}
-                      onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
-                      className={`input ${passwordErrors.currentPassword ? 'border-danger focus:ring-danger' : ''}`}
-                    />
+                    <div className="relative">
+                      <input
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={passwordData.currentPassword}
+                        onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
+                        placeholder={t('settings.password.current')}
+                        className={`input pr-10 ${passwordErrors.currentPassword ? 'border-danger focus:ring-danger' : ''}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                        tabIndex={-1}
+                        aria-label={showCurrentPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                      >
+                        {showCurrentPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
                     {passwordErrors.currentPassword && (
                       <p className="mt-1 text-sm text-danger">{passwordErrors.currentPassword}</p>
                     )}
@@ -371,14 +403,37 @@ export default function Settings() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {user?.hasPassword === false ? 'Mật khẩu mới' : t('settings.password.new')} <span className="text-danger">*</span>
+                    {isGoogleWithoutPassword
+                      ? (currentLang === 'vi' ? 'Mật khẩu mới' : 'New password')
+                      : t('settings.password.new')}{' '}
+                    <span className="text-danger">*</span>
                   </label>
-                  <input
-                    type="password"
-                    value={passwordData.newPassword}
-                    onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
-                    className={`input ${passwordErrors.newPassword ? 'border-danger focus:ring-danger' : ''}`}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={passwordData.newPassword}
+                      onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
+                      placeholder={
+                        isGoogleWithoutPassword
+                          ? (currentLang === 'vi' ? 'Nhập mật khẩu mới' : 'Enter new password')
+                          : t('settings.password.new')
+                      }
+                      className={`input pr-10 ${passwordErrors.newPassword ? 'border-danger focus:ring-danger' : ''}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                      tabIndex={-1}
+                      aria-label={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      {showNewPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
                   {passwordErrors.newPassword && (
                     <p className="mt-1 text-sm text-danger">{passwordErrors.newPassword}</p>
                   )}
@@ -393,12 +448,28 @@ export default function Settings() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('settings.password.confirm')} <span className="text-danger">*</span>
                   </label>
-                  <input
-                    type="password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
-                    className={`input ${passwordErrors.confirmPassword ? 'border-danger focus:ring-danger' : ''}`}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
+                      placeholder={t('settings.password.confirm')}
+                      className={`input pr-10 ${passwordErrors.confirmPassword ? 'border-danger focus:ring-danger' : ''}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                      tabIndex={-1}
+                      aria-label={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
                   {passwordErrors.confirmPassword && (
                     <p className="mt-1 text-sm text-danger">{passwordErrors.confirmPassword}</p>
                   )}
@@ -412,8 +483,8 @@ export default function Settings() {
                   <Lock className="w-4 h-4" />
                   {loading
                     ? t('settings.password.submitting')
-                    : user?.hasPassword === false
-                      ? 'Thiết lập mật khẩu'
+                    : isGoogleWithoutPassword
+                      ? t('settings.password.submitSet')
                       : t('settings.password.submit')}
                 </button>
               </form>

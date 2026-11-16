@@ -50,6 +50,7 @@ public class UserServiceImpl {
                 .timezone(user.getTimezone())
                 .role(user.getRole())
                 .isActive(user.getIsActive())
+                .hasPassword(Boolean.TRUE.equals(user.getHasPassword()))
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
