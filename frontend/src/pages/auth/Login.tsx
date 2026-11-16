@@ -1,6 +1,6 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Wallet, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../lib/axios';
@@ -9,6 +9,7 @@ import { AuthResponse } from '../../types';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const login = useAuthStore((state) => state.login);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -81,11 +82,10 @@ export default function Login() {
         createdAt: meRes.data.createdAt ?? '',
       }, response.data.accessToken, response.data.refreshToken);
       toast.success('Đăng nhập thành công!');
-      if (response.data.role === 'ADMIN') {
-        navigate('/admin');
-      } else {
-        navigate('/');
-      }
+      const from = (location.state as any)?.from
+        ? `${(location.state as any).from.pathname}${(location.state as any).from.search || ''}`
+        : (response.data.role === 'ADMIN' ? '/admin' : '/');
+      navigate(from, { replace: true });
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Đăng nhập thất bại');
     } finally {

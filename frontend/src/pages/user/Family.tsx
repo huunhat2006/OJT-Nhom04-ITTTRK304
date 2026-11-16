@@ -1,12 +1,15 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useEffect, useState } from 'react';
-import { Home, Plus, LogIn, Copy, UserPlus, LogOut, Trash2, Users } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Home, Plus, Copy, UserPlus, LogOut, Trash2, Users, QrCode } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
 import { useAuthStore } from '../../store/authStore';
 import api from '../../lib/axios';
 import { FinancialSpace, FamilyMember } from '../../types';
 import { formatDateTime } from '../../lib/utils';
 import Modal from '../../components/Modal';
+import FamilyQrModal from '../../components/FamilyQrModal';
+import FamilyQrScannerModal from '../../components/FamilyQrScannerModal';
 import toast from 'react-hot-toast';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -22,6 +25,7 @@ export default function Family() {
   const [spaces, setLocalSpaces] = useState<FinancialSpace[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
@@ -31,6 +35,7 @@ export default function Family() {
   const [joining, setJoining] = useState(false);
 
   const [selectedSpace, setSelectedSpace] = useState<FinancialSpace | null>(null);
+  const [qrSpace, setQrSpace] = useState<FinancialSpace | null>(null);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [inviteForm, setInviteForm] = useState({ usernameOrEmail: '', role: 'MEMBER' });
@@ -39,6 +44,15 @@ export default function Family() {
   useEffect(() => {
     fetchSpaces();
   }, []);
+
+  useEffect(() => {
+    const code = searchParams.get('joinCode');
+    if (code) {
+      setJoinCode(code.trim().toUpperCase());
+      setShowJoin(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams]);
 
   const fetchSpaces = async () => {
     try {
@@ -82,16 +96,15 @@ export default function Family() {
     }
   };
 
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!joinCode.trim()) {
+  const handleJoinWithCode = async (code: string) => {
+    if (!code || !code.trim()) {
       toast.error('Vui lòng nhập mã mời');
       return;
     }
     setJoining(true);
     try {
       const { data } = await api.post<FinancialSpace>(
-        `/spaces/join?inviteCode=${encodeURIComponent(joinCode.trim())}`
+        `/spaces/join?inviteCode=${encodeURIComponent(code.trim())}`
       );
       toast.success(`Đã tham gia "${data.name}"`);
       setShowJoin(false);
@@ -221,6 +234,13 @@ export default function Family() {
           <span className="text-xs text-gray-500 flex-1">Mã mời:</span>
           <code className="text-sm font-mono font-semibold text-primary">{space.inviteCode}</code>
           <button
+            onClick={() => setQrSpace(space)}
+            className="p-1 rounded hover:bg-primary/10 text-primary"
+            title="Xem mã QR"
+          >
+            <QrCode className="w-4 h-4" />
+          </button>
+          <button
             onClick={() => copyInviteCode(space.inviteCode)}
             className="p-1 rounded hover:bg-gray-200 text-gray-500"
             title="Sao chép"
@@ -265,8 +285,8 @@ export default function Family() {
         </div>
         <div className="flex gap-3">
           <button onClick={() => setShowJoin(true)} className="btn btn-secondary flex items-center gap-2">
-            <LogIn className="w-4 h-4" />
-            Nhập mã mời
+            <QrCode className="w-4 h-4" />
+            Tham gia bằng mã / QR
           </button>
           <button onClick={() => setShowCreate(true)} className="btn btn-primary flex items-center gap-2">
             <Plus className="w-5 h-5" />
@@ -343,32 +363,21 @@ export default function Family() {
         </form>
       </Modal>
 
-      {/* Join modal */}
-      <Modal open={showJoin} onClose={() => setShowJoin(false)} title="Tham gia bằng mã mời">
-        <form onSubmit={handleJoin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Mã mời *</label>
-            <input
-              type="text"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              className="input font-mono text-center"
-              placeholder="FAM-XXXXXXXX"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Nhập mã được chia sẻ bởi chủ nhóm gia đình
-            </p>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={joining} className="btn btn-primary flex-1">
-              {joining ? 'Đang tham gia...' : 'Tham gia'}
-            </button>
-            <button type="button" onClick={() => setShowJoin(false)} className="btn btn-secondary flex-1">
-              Hủy
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {/* Join & QR Scanner modal */}
+      <FamilyQrScannerModal
+        open={showJoin}
+        onClose={() => setShowJoin(false)}
+        onJoin={handleJoinWithCode}
+        joining={joining}
+        initialCode={joinCode}
+      />
+
+      {/* QR Code view & download modal */}
+      <FamilyQrModal
+        open={!!qrSpace}
+        onClose={() => setQrSpace(null)}
+        space={qrSpace}
+      />
 
       {/* Members modal */}
       <Modal
