@@ -136,6 +136,12 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
+        User candidate = userRepository.findByUsernameOrEmail(request.getUsernameOrEmail(), request.getUsernameOrEmail())
+                .orElse(null);
+        if (candidate != null && Boolean.FALSE.equals(candidate.getHasPassword())) {
+            throw new BadRequestException("Tài khoản này được đăng nhập qua Google và chưa thiết lập mật khẩu. Vui lòng đăng nhập bằng Google.");
+        }
+
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getUsernameOrEmail(), request.getPassword()));
@@ -227,7 +233,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        boolean hasPassword = user.getPasswordHash() != null && !user.getPasswordHash().isBlank();
+        boolean hasPassword = Boolean.TRUE.equals(user.getHasPassword());
 
         if (hasPassword) {
             // Đã có mật khẩu → yêu cầu xác nhận mật khẩu cũ
@@ -241,6 +247,7 @@ public class AuthServiceImpl implements AuthService {
         // Chưa có mật khẩu (đăng nhập qua Google) → cho phép thiết lập mật khẩu mới luôn
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        user.setHasPassword(true);
         userRepository.save(user);
         log.info("Password {} for user: {}", hasPassword ? "changed" : "set", user.getUsername());
     }
@@ -256,7 +263,7 @@ public class AuthServiceImpl implements AuthService {
                 .timezone(user.getTimezone())
                 .role(user.getRole())
                 .isActive(user.getIsActive())
-                .hasPassword(user.getPasswordHash() != null && !user.getPasswordHash().isBlank())
+                .hasPassword(Boolean.TRUE.equals(user.getHasPassword()))
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
@@ -299,6 +306,8 @@ public class AuthServiceImpl implements AuthService {
                     .timezone("Asia/Ho_Chi_Minh")
                     .role(Role.USER)
                     .isActive(true)
+                    .hasPassword(false)
+                    .authProvider("GOOGLE")
                     .build();
             user = userRepository.save(user);
 

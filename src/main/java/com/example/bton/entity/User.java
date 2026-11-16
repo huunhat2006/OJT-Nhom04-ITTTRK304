@@ -57,6 +57,14 @@ public class User {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "has_password", nullable = false)
+    @Builder.Default
+    private Boolean hasPassword = true;
+
+    @Column(name = "auth_provider", length = 20)
+    @Builder.Default
+    private String authProvider = "LOCAL";
+
     @Column(name = "otp_verified_until")
     private LocalDateTime otpVerifiedUntil;
 
