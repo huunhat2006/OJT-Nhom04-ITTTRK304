@@ -51,6 +51,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider tokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final WalletRepository walletRepository;
+    private final com.example.bton.service.NotificationService notificationService;
 
     public AuthServiceImpl(UserRepository userRepository,
                            FinancialSpaceRepository spaceRepository,
@@ -58,7 +59,8 @@ public class AuthServiceImpl implements AuthService {
                            @Lazy AuthenticationManager authenticationManager,
                            JwtTokenProvider tokenProvider,
                            RefreshTokenRepository refreshTokenRepository,
-                           WalletRepository walletRepository) {
+                           WalletRepository walletRepository,
+                           @Lazy com.example.bton.service.NotificationService notificationService) {
         this.userRepository = userRepository;
         this.spaceRepository = spaceRepository;
         this.passwordEncoder = passwordEncoder;
@@ -66,6 +68,7 @@ public class AuthServiceImpl implements AuthService {
         this.tokenProvider = tokenProvider;
         this.refreshTokenRepository = refreshTokenRepository;
         this.walletRepository = walletRepository;
+        this.notificationService = notificationService;
     }
 
     @Value("${app.jwt.refresh-expiration}")
@@ -250,6 +253,22 @@ public class AuthServiceImpl implements AuthService {
         user.setHasPassword(true);
         userRepository.save(user);
         log.info("Password {} for user: {}", hasPassword ? "changed" : "set", user.getUsername());
+
+        try {
+            String actionType = hasPassword ? "thay đổi" : "thiết lập mới";
+            String timeStr = java.time.LocalDateTime.now().format(
+                    java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy"));
+            notificationService.send(
+                    user.getId(),
+                    "🔐 Bảo mật tài khoản: Mật khẩu đã được " + actionType,
+                    "Mật khẩu tài khoản Budgivee của bạn đã được " + actionType + " thành công vào lúc " + timeStr +
+                            ". Nếu bạn không thực hiện thao tác này, vui lòng liên hệ ngay với chúng tôi để bảo vệ tài khoản.",
+                    com.example.bton.enums.NotificationType.SYSTEM,
+                    user.getId(),
+                    true);
+        } catch (Exception ex) {
+            log.warn("Failed to send password change notification to user {}: {}", user.getUsername(), ex.getMessage());
+        }
     }
 
     private UserResponse mapToUserResponse(User user) {

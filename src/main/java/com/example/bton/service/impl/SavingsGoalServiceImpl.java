@@ -31,6 +31,7 @@ public class SavingsGoalServiceImpl {
     private final FinancialSpaceRepository spaceRepository;
     private final UserRepository userRepository;
     private final FinancialSpaceServiceImpl spaceService;
+    private final com.example.bton.service.NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public List<SavingsGoalResponse> getGoals(Long spaceId, Long userId) {
@@ -111,7 +112,22 @@ public class SavingsGoalServiceImpl {
 
         // Auto-complete when target reached
         if (goal.getCurrentAmount().compareTo(goal.getTargetAmount()) >= 0) {
-            goal.setStatus(GoalStatus.COMPLETED);
+            if (goal.getStatus() != GoalStatus.COMPLETED) {
+                goal.setStatus(GoalStatus.COMPLETED);
+                try {
+                    String targetStr = String.format("%,.0f VNĐ", goal.getTargetAmount().doubleValue());
+                    notificationService.send(
+                            userId,
+                            "🎯 Chúc mừng! Đã đạt mục tiêu: " + goal.getName(),
+                            "Mục tiêu tiết kiệm '" + goal.getName() + "' của bạn đã chính thức đạt mốc " +
+                                    targetStr + " (100%). Chúc mừng bạn đã hoàn thành kế hoạch này!",
+                            com.example.bton.enums.NotificationType.GOAL_ACHIEVED,
+                            goal.getId(),
+                            true);
+                } catch (Exception ex) {
+                    // ignore
+                }
+            }
         } else if (goal.getStatus() == GoalStatus.COMPLETED) {
             goal.setStatus(GoalStatus.IN_PROGRESS);
         }

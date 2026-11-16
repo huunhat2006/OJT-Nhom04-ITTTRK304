@@ -41,4 +41,17 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.id = :id AND n.user.id = :userId")
     void markAsReadByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
+
+    @Query("""
+            SELECT COUNT(n) FROM Notification n 
+            WHERE n.user.id = :userId 
+            AND n.type = :type 
+            AND n.relatedId = :relatedId 
+            AND n.createdAt >= :since
+            """)
+    long countRecentNotifications(
+            @Param("userId") Long userId,
+            @Param("type") com.example.bton.enums.NotificationType type,
+            @Param("relatedId") Long relatedId,
+            @Param("since") java.time.LocalDateTime since);
 }

@@ -119,6 +119,24 @@ public class TransactionServiceImpl {
         // Check budget thresholds for expenses (based on the transaction's own date)
         if (request.getType() == TransactionType.EXPENSE) {
             checkBudgetThresholds(space, category, userId, request.getTransactionDate());
+
+            // Nếu là chi tiêu trong không gian gia đình bởi thành viên khác -> gửi thông báo real-time cho chủ hộ (Owner)
+            if (space.getType() == SpaceType.FAMILY) {
+                User owner = space.getOwner();
+                if (owner != null && !owner.getId().equals(userId)) {
+                    String amountStr = String.format("%,.0f VNĐ", amount.doubleValue());
+                    notificationService.send(
+                            owner.getId(),
+                            "👨‍👩‍👧 Chi tiêu mới trong gia đình: " + space.getName(),
+                            "Thành viên " + user.getFullName() + " vừa chi tiêu " + amountStr +
+                                    " cho danh mục '" + category.getName() + "'" +
+                                    (request.getDescription() != null && !request.getDescription().isBlank() ? " (" + request.getDescription() + ")" : "") +
+                                    " trong không gian " + space.getName() + ".",
+                            com.example.bton.enums.NotificationType.LARGE_EXPENSE,
+                            transaction.getId(),
+                            true);
+                }
+            }
         }
 
         return mapToResponse(transaction);
@@ -324,21 +342,28 @@ public class TransactionServiceImpl {
                     : BigDecimal.ZERO;
 
             if (usagePercentage.compareTo(new BigDecimal("100")) >= 0) {
-                notificationService.createNotification(
+                String overAmount = String.format("%,.0f VNĐ", spent.subtract(budget.getAmount()).doubleValue());
+                String spentStr = String.format("%,.0f VNĐ", spent.doubleValue());
+                String budgetStr = String.format("%,.0f VNĐ", budget.getAmount().doubleValue());
+                notificationService.send(
                         userId,
-                        "Cảnh báo bội chi",
-                        "Bạn đã vượt quá hạn mức ngân sách '" + category.getName() + "' " +
-                                spent.subtract(budget.getAmount()) + " VNĐ!",
+                        "🚨 Cảnh báo bội chi: " + category.getName(),
+                        "Bạn đã chi tiêu vượt quá hạn mức ngân sách danh mục '" + category.getName() + "' là " +
+                                overAmount + " (Đã tiêu " + spentStr + " / Hạn mức " + budgetStr + " - " + usagePercentage + "%). Hãy chú ý điều chỉnh chi tiêu!",
                         com.example.bton.enums.NotificationType.BUDGET_EXCEEDED,
-                        budget.getId());
+                        budget.getId(),
+                        true);
             } else if (usagePercentage.compareTo(budget.getWarningThreshold()) >= 0) {
-                notificationService.createNotification(
+                String spentStr = String.format("%,.0f VNĐ", spent.doubleValue());
+                String budgetStr = String.format("%,.0f VNĐ", budget.getAmount().doubleValue());
+                notificationService.send(
                         userId,
-                        "Cảnh báo ngân sách",
+                        "⚠️ Cảnh báo ngân sách: " + category.getName(),
                         "Danh mục '" + category.getName() + "' đã chi tiêu đạt " +
-                                usagePercentage + "% hạn mức ngân sách tháng.",
+                                usagePercentage + "% hạn mức ngân sách tháng (" + spentStr + " / " + budgetStr + "). Hãy chú ý kiểm soát các khoản chi sắp tới!",
                         com.example.bton.enums.NotificationType.BUDGET_WARNING,
-                        budget.getId());
+                        budget.getId(),
+                        true);
             }
         }
     }
