@@ -9,5 +9,7 @@ public enum NotificationType {
     GOAL_DEADLINE,
     FAMILY_INVITE,
     WEEKLY_SUMMARY,
-    SYSTEM
+    SYSTEM,
+    LARGE_EXPENSE,
+    RECURRING_DUE
 }

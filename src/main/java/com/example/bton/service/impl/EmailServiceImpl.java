@@ -170,6 +170,8 @@ public class EmailServiceImpl implements EmailService {
             case GOAL_DEADLINE -> "Hạn chót mục tiêu";
             case FAMILY_INVITE -> "Lời mời nhóm gia đình";
             case WEEKLY_SUMMARY -> "Báo cáo tuần";
+            case LARGE_EXPENSE -> "Khoản chi gia đình";
+            case RECURRING_DUE -> "Giao dịch định kỳ";
             default -> "Thông báo";
         };
     }
@@ -178,7 +180,7 @@ public class EmailServiceImpl implements EmailService {
         if (type == null) return "";
         return switch (type) {
             case BUDGET_EXCEEDED -> "badge-exceeded";
-            case BUDGET_WARNING -> "badge-warning";
+            case BUDGET_WARNING, LARGE_EXPENSE -> "badge-warning";
             case GOAL_COMPLETED, GOAL_ACHIEVED -> "badge-goal";
             default -> "";
         };

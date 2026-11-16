@@ -78,6 +78,15 @@ public class NotificationServiceImpl implements NotificationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
+        // Cooldown check for budget alerts: prevent duplicate email within 12 hours for same budget/type
+        if (sendEmail && (type == NotificationType.BUDGET_EXCEEDED || type == NotificationType.BUDGET_WARNING) && relatedId != null) {
+            long recentCount = notificationRepository.countRecentNotifications(
+                    userId, type, relatedId, java.time.LocalDateTime.now().minusHours(12));
+            if (recentCount > 0) {
+                sendEmail = false;
+            }
+        }
+
         Notification notification = Notification.builder()
                 .user(user)
                 .title(title)

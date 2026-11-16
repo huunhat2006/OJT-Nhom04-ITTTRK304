@@ -69,6 +69,7 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
     private final FamilyMemberRepository familyMemberRepository;
     private final FinancialSpaceServiceImpl spaceService;
     private final TransactionServiceImpl transactionService;
+    private final com.example.bton.service.NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -334,6 +335,23 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
             advance(recurring, scheduledDate);
             recurringRepository.save(recurring);
             saveRun(recurring, generated, scheduledDate, RecurringRunStatus.SUCCESS, null);
+
+            // Gửi thông báo real-time khi giao dịch định kỳ được tự động ghi nhận
+            try {
+                String amountStr = String.format("%,.0f VNĐ", recurring.getAmount().doubleValue());
+                notificationService.send(
+                        recurring.getUser().getId(),
+                        "🔄 Tự động thực hiện định kỳ: " + recurring.getName(),
+                        "Khoản " + (recurring.getType() == TransactionType.EXPENSE ? "chi" : "thu") +
+                                " định kỳ '" + recurring.getName() + "' với số tiền " + amountStr +
+                                " đã được hệ thống tự động ghi nhận vào ví thành công.",
+                        com.example.bton.enums.NotificationType.RECURRING_DUE,
+                        recurring.getId(),
+                        true);
+            } catch (Exception ex) {
+                log.warn("Failed to send notification for recurring transaction {}: {}", id, ex.getMessage());
+            }
+
             return true;
         } catch (Exception e) {
             advance(recurring, scheduledDate);
