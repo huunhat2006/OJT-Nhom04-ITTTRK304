@@ -1,5 +1,5 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
 
@@ -36,6 +36,17 @@ import AdminAuditLogs from './pages/admin/AuditLogs';
 // Error Boundary
 import ErrorBoundary from './components/ErrorBoundary';
 
+// Protected Layout with Return Location Support
+function ProtectedLayout() {
+  const { isAuthenticated } = useAuthStore();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  return <DashboardLayout />;
+}
+
 function App() {
   const { isAuthenticated, user } = useAuthStore();
 
@@ -54,7 +65,7 @@ function App() {
             <Route path="/oauth2/callback" element={<OAuth2Callback />} />
 
             {/* Protected Routes */}
-            <Route element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" replace />}>
+            <Route element={<ProtectedLayout />}>
               {/* User & Personal Finance Routes (accessible to both USER and ADMIN) */}
               <Route path="/" element={<Overview />} />
               <Route path="/transactions" element={<Transactions />} />
