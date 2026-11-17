@@ -10,11 +10,13 @@ import com.example.bton.entity.Category;
 import com.example.bton.entity.FinancialSpace;
 import com.example.bton.entity.RecurringTransaction;
 import com.example.bton.entity.RecurringTransactionRun;
+import com.example.bton.entity.SavingsGoal;
 import com.example.bton.entity.Transaction;
 import com.example.bton.entity.User;
 import com.example.bton.entity.Wallet;
 import com.example.bton.enums.CategoryType;
 import com.example.bton.enums.FamilyRole;
+import com.example.bton.enums.GoalStatus;
 import com.example.bton.enums.RecurringFrequency;
 import com.example.bton.enums.RecurringRunStatus;
 import com.example.bton.enums.RecurringStatus;
@@ -28,6 +30,7 @@ import com.example.bton.repository.FamilyMemberRepository;
 import com.example.bton.repository.FinancialSpaceRepository;
 import com.example.bton.repository.RecurringTransactionRepository;
 import com.example.bton.repository.RecurringTransactionRunRepository;
+import com.example.bton.repository.SavingsGoalRepository;
 import com.example.bton.repository.TransactionRepository;
 import com.example.bton.repository.UserRepository;
 import com.example.bton.repository.WalletRepository;
@@ -67,6 +70,7 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
     private final FamilyMemberRepository familyMemberRepository;
+    private final SavingsGoalRepository savingsGoalRepository;
     private final FinancialSpaceServiceImpl spaceService;
     private final TransactionServiceImpl transactionService;
     private final com.example.bton.service.NotificationService notificationService;
@@ -118,6 +122,30 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
             description = template.getDescription();
         }
 
+        SavingsGoal savingsGoal = null;
+        if (request.getSavingsGoalId() != null) {
+            savingsGoal = savingsGoalRepository.findById(request.getSavingsGoalId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Savings goal", "id", request.getSavingsGoalId()));
+            if (!savingsGoal.getSpace().getId().equals(space.getId())) {
+                throw new BadRequestException("Mục tiêu tiết kiệm phải thuộc cùng không gian tài chính");
+            }
+            if (savingsGoal.getStatus() == GoalStatus.CANCELLED) {
+                throw new BadRequestException("Không thể liên kết mục tiêu đã bị hủy");
+            }
+            if (type == null) {
+                type = TransactionType.EXPENSE;
+            }
+            if (category == null) {
+                category = categoryRepository.findAll().stream()
+                        .filter(c -> "Savings".equalsIgnoreCase(c.getName()) || "Tiết kiệm".equalsIgnoreCase(c.getNameVi()))
+                        .findFirst()
+                        .orElse(null);
+            }
+            if (description == null || description.isBlank()) {
+                description = "Tích lũy: " + savingsGoal.getName();
+            }
+        }
+
         validateFields(type, category, amount, userId);
         validateDates(request.getStartDate(), request.getEndDate(), request.getNextRunDate());
 
@@ -131,6 +159,7 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
                 .templateTransaction(template)
                 .wallet(wallet)
                 .category(category)
+                .savingsGoal(savingsGoal)
                 .type(type)
                 .amount(amount)
                 .description(description)
@@ -192,6 +221,15 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
         validateDates(request.getStartDate(), request.getEndDate(), request.getNextRunDate());
 
         LocalDate nextRunDate = calculateNextRunDate(request, recurring, frequency);
+
+        if (request.getSavingsGoalId() != null) {
+            SavingsGoal savingsGoal = savingsGoalRepository.findById(request.getSavingsGoalId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Savings goal", "id", request.getSavingsGoalId()));
+            if (!savingsGoal.getSpace().getId().equals(space.getId())) {
+                throw new BadRequestException("Mục tiêu tiết kiệm phải thuộc cùng không gian tài chính");
+            }
+            recurring.setSavingsGoal(savingsGoal);
+        }
 
         recurring.setSpace(space);
         if (template != null) {
@@ -332,13 +370,117 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
                 transactionRepository.save(generated);
             }
 
+            // Tự động tích lũy vào mục tiêu tiết kiệm nếu có liên kết
+            updateSavingsGoalIfPresent(recurring);
+
             advance(recurring, scheduledDate);
             recurringRepository.save(recurring);
             saveRun(recurring, generated, scheduledDate, RecurringRunStatus.SUCCESS, null);
 
             // Gửi thông báo real-time khi giao dịch định kỳ được tự động ghi nhận
-            try {
-                String amountStr = String.format("%,.0f VNĐ", recurring.getAmount().doubleValue());
+            sendExecutionNotification(recurring);
+
+            return true;
+        } catch (Exception e) {
+            advance(recurring, scheduledDate);
+            recurringRepository.save(recurring);
+            saveRun(recurring, null, scheduledDate, RecurringRunStatus.FAILED, e.getMessage());
+            log.warn("Recurring transaction {} failed for scheduled date {}: {}",
+                    id, scheduledDate, e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean executeNow(Long id, Long userId) {
+        RecurringTransaction recurring = loadDetailed(id);
+        verifyModifyAccess(recurring, userId);
+        if (recurring.getStatus() == RecurringStatus.ENDED) {
+            throw new BadRequestException("Giao dịch định kỳ đã kết thúc, không thể thực hiện");
+        }
+
+        ZoneId zone = resolveZone(recurring.getUser().getTimezone());
+        LocalDate today = LocalDate.now(zone);
+        LocalDate scheduledDate = recurring.getNextRunDate() != null ? recurring.getNextRunDate() : today;
+
+        try {
+            TransactionRequest transactionRequest = buildTransactionRequest(recurring);
+            transactionRequest.setTransactionDate(today);
+            TransactionResponse created = transactionService.createTransactionRequiresNew(
+                    recurring.getUser().getId(), transactionRequest);
+
+            Transaction generated = transactionRepository.findById(created.getId()).orElse(null);
+            if (generated != null) {
+                generated.setRecurringTransaction(recurring);
+                transactionRepository.save(generated);
+            }
+
+            // Tự động tích lũy vào mục tiêu tiết kiệm nếu có liên kết
+            updateSavingsGoalIfPresent(recurring);
+
+            advance(recurring, scheduledDate);
+            recurringRepository.save(recurring);
+            saveRun(recurring, generated, today, RecurringRunStatus.SUCCESS, null);
+
+            // Gửi thông báo real-time
+            sendExecutionNotification(recurring);
+
+            return true;
+        } catch (Exception e) {
+            saveRun(recurring, null, today, RecurringRunStatus.FAILED, e.getMessage());
+            log.error("Manual execution of recurring transaction {} failed: {}", id, e.getMessage(), e);
+            throw new BadRequestException("Không thể thực hiện giao dịch định kỳ: " + e.getMessage());
+        }
+    }
+
+    private void updateSavingsGoalIfPresent(RecurringTransaction recurring) {
+        if (recurring.getSavingsGoal() != null) {
+            SavingsGoal goal = savingsGoalRepository.findById(recurring.getSavingsGoal().getId()).orElse(null);
+            if (goal != null && goal.getStatus() != GoalStatus.CANCELLED) {
+                BigDecimal newAmount = (goal.getCurrentAmount() != null ? goal.getCurrentAmount() : BigDecimal.ZERO)
+                        .add(recurring.getAmount());
+                goal.setCurrentAmount(newAmount);
+                boolean reached = false;
+                if (newAmount.compareTo(goal.getTargetAmount()) >= 0 && goal.getStatus() != GoalStatus.COMPLETED) {
+                    goal.setStatus(GoalStatus.COMPLETED);
+                    reached = true;
+                }
+                savingsGoalRepository.save(goal);
+
+                if (reached) {
+                    try {
+                        String targetStr = String.format("%,.0f VNĐ", goal.getTargetAmount().doubleValue());
+                        notificationService.send(
+                                recurring.getUser().getId(),
+                                "🎯 Chúc mừng! Đã đạt mục tiêu: " + goal.getName(),
+                                "Mục tiêu tiết kiệm '" + goal.getName() + "' của bạn đã chính thức đạt mốc " +
+                                        targetStr + " (100%) từ khoản tích lũy tự động định kỳ!",
+                                com.example.bton.enums.NotificationType.GOAL_ACHIEVED,
+                                goal.getId(),
+                                true);
+                    } catch (Exception ex) {
+                        log.warn("Failed to send goal reached notification: {}", ex.getMessage());
+                    }
+                }
+            }
+        }
+    }
+
+    private void sendExecutionNotification(RecurringTransaction recurring) {
+        try {
+            String amountStr = String.format("%,.0f VNĐ", recurring.getAmount().doubleValue());
+            if (recurring.getSavingsGoal() != null) {
+                String goalName = recurring.getSavingsGoal().getName();
+                notificationService.send(
+                        recurring.getUser().getId(),
+                        "🎯 Tự động tích lũy: " + goalName,
+                        "Khoản tích lũy định kỳ với số tiền " + amountStr +
+                                " đã được hệ thống tự động trích vào mục tiêu '" + goalName + "' thành công.",
+                        com.example.bton.enums.NotificationType.RECURRING_DUE,
+                        recurring.getId(),
+                        true);
+            } else {
                 String recName = recurring.getDescription() != null && !recurring.getDescription().isBlank()
                         ? recurring.getDescription()
                         : (recurring.getCategory() != null ? recurring.getCategory().getName() : "Giao dịch #" + recurring.getId());
@@ -351,18 +493,9 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
                         com.example.bton.enums.NotificationType.RECURRING_DUE,
                         recurring.getId(),
                         true);
-            } catch (Exception ex) {
-                log.warn("Failed to send notification for recurring transaction {}: {}", id, ex.getMessage());
             }
-
-            return true;
-        } catch (Exception e) {
-            advance(recurring, scheduledDate);
-            recurringRepository.save(recurring);
-            saveRun(recurring, null, scheduledDate, RecurringRunStatus.FAILED, e.getMessage());
-            log.warn("Recurring transaction {} failed for scheduled date {}: {}",
-                    id, scheduledDate, e.getMessage());
-            return false;
+        } catch (Exception ex) {
+            log.warn("Failed to send notification for recurring transaction {}: {}", recurring.getId(), ex.getMessage());
         }
     }
 
@@ -589,6 +722,8 @@ public class RecurringTransactionServiceImpl implements RecurringTransactionServ
                 .category(recurring.getCategory() != null
                         ? CategoryServiceImpl.mapCategoryStatic(recurring.getCategory())
                         : null)
+                .savingsGoalId(recurring.getSavingsGoal() != null ? recurring.getSavingsGoal().getId() : null)
+                .savingsGoalName(recurring.getSavingsGoal() != null ? recurring.getSavingsGoal().getName() : null)
                 .type(recurring.getType())
                 .amount(recurring.getAmount())
                 .description(recurring.getDescription())

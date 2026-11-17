@@ -25,7 +25,7 @@ export default function Family() {
   const [spaces, setLocalSpaces] = useState<FinancialSpace[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', description: '' });
   const [creating, setCreating] = useState(false);
@@ -43,16 +43,13 @@ export default function Family() {
 
   useEffect(() => {
     fetchSpaces();
-  }, []);
-
-  useEffect(() => {
     const code = searchParams.get('joinCode');
     if (code) {
       setJoinCode(code.trim().toUpperCase());
       setShowJoin(true);
-      setSearchParams({}, { replace: true });
     }
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchSpaces = async () => {
     try {
@@ -106,13 +103,12 @@ export default function Family() {
       const { data } = await api.post<FinancialSpace>(
         `/spaces/join?inviteCode=${encodeURIComponent(code.trim())}`
       );
-      toast.success(`Đã tham gia "${data.name}"`);
+      toast.success(`Đã tham gia nhóm "${data.name}" thành công!`);
       setShowJoin(false);
       setJoinCode('');
-      fetchSpaces();
-      setCurrentSpace(data);
+      await fetchSpaces();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Mã mời không hợp lệ');
+      toast.error(error.response?.data?.message || 'Mã mời không hợp lệ hoặc nhóm không tồn tại');
     } finally {
       setJoining(false);
     }

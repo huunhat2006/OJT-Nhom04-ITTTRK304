@@ -28,4 +28,6 @@ public interface RecurringTransactionService {
     List<Long> findDueRecurringIds();
 
     boolean executeDueRecurring(Long id);
+
+    boolean executeNow(Long id, Long userId);
 }

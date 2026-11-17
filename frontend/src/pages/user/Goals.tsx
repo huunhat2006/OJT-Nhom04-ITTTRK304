@@ -1,12 +1,20 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useEffect, useState } from 'react';
-import { Plus, Target, TrendingUp, Pencil, Trash2, Wallet, XCircle } from 'lucide-react';
+import { Plus, Target, TrendingUp, Pencil, Trash2, Wallet, XCircle, Clock, RefreshCw } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
 import api from '../../lib/axios';
-import { SavingsGoal, Wallet as WalletType, Category } from '../../types';
+import { SavingsGoal, Wallet as WalletType, Category, RecurringTransaction, RecurringFrequency } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import Modal from '../../components/Modal';
 import toast from 'react-hot-toast';
+
+const FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
+  DAILY: 'Hằng ngày',
+  WEEKLY: 'Hằng tuần',
+  MONTHLY: 'Hằng tháng',
+  QUARTERLY: 'Hằng quý',
+  YEARLY: 'Hằng năm',
+};
 
 const emptyForm = {
   name: '',
@@ -29,16 +37,26 @@ export default function Goals() {
 
   const [wallets, setWallets] = useState<WalletType[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [recurringList, setRecurringList] = useState<RecurringTransaction[]>([]);
 
   const [showAddAmount, setShowAddAmount] = useState<SavingsGoal | null>(null);
   const [addAmount, setAddAmount] = useState('');
   const [addWalletId, setAddWalletId] = useState('');
+
+  // Tự động tích lũy định kỳ modal state
+  const [showAutoRecurring, setShowAutoRecurring] = useState<SavingsGoal | null>(null);
+  const [autoAmount, setAutoAmount] = useState('');
+  const [autoWalletId, setAutoWalletId] = useState('');
+  const [autoFrequency, setAutoFrequency] = useState<RecurringFrequency>('MONTHLY');
+  const [autoStartDate, setAutoStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [savingAuto, setSavingAuto] = useState(false);
 
   useEffect(() => {
     if (currentSpace) {
       fetchGoals();
       fetchWallets();
       fetchCategories();
+      fetchRecurring();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSpace]);
@@ -70,6 +88,18 @@ export default function Goals() {
     try {
       const { data } = await api.get<Category[]>('/categories');
       setCategories(data);
+    } catch {
+      // ignore
+    }
+  };
+
+  const fetchRecurring = async () => {
+    if (!currentSpace) return;
+    try {
+      const { data } = await api.get<RecurringTransaction[]>(
+        `/recurring-transactions?spaceId=${currentSpace.id}`
+      );
+      setRecurringList(data);
     } catch {
       // ignore
     }
@@ -213,6 +243,53 @@ export default function Goals() {
     }
   };
 
+  const openAutoRecurringModal = (g: SavingsGoal) => {
+    setShowAutoRecurring(g);
+    setAutoAmount('');
+    setAutoWalletId(wallets.length > 0 ? String(wallets[0].id) : '');
+    setAutoFrequency('MONTHLY');
+    setAutoStartDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const handleCreateAutoRecurring = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!showAutoRecurring || !currentSpace) return;
+    if (!autoAmount || Number(autoAmount) <= 0) {
+      toast.error('Vui lòng nhập số tiền hợp lệ');
+      return;
+    }
+    if (!autoWalletId) {
+      toast.error('Vui lòng chọn ví để trích tiền');
+      return;
+    }
+
+    const savingsCat = categories.find(
+      (c) => c.name === 'Savings' || c.nameVi === 'Tiết kiệm'
+    );
+
+    setSavingAuto(true);
+    try {
+      await api.post('/recurring-transactions', {
+        spaceId: currentSpace.id,
+        savingsGoalId: showAutoRecurring.id,
+        walletId: Number(autoWalletId),
+        categoryId: savingsCat ? savingsCat.id : undefined,
+        amount: Number(autoAmount),
+        frequency: autoFrequency,
+        startDate: autoStartDate,
+        type: 'EXPENSE',
+        description: `Tích lũy: ${showAutoRecurring.name}`,
+      });
+      toast.success(`Đã kích hoạt tự động tích lũy định kỳ cho "${showAutoRecurring.name}"!`);
+      setShowAutoRecurring(null);
+      fetchRecurring();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Không thể thiết lập tự động nạp');
+    } finally {
+      setSavingAuto(false);
+    }
+  };
+
   const handleCancel = async (g: SavingsGoal) => {
     if (!confirm('Hủy mục tiêu này?')) return;
     try {
@@ -314,6 +391,9 @@ export default function Goals() {
         ) : (
           goals.map((goal) => {
             const progress = Number(goal.progressPercentage);
+            const activeAuto = recurringList.filter(
+              (r) => r.savingsGoalId === goal.id && r.status === 'ACTIVE'
+            );
             return (
               <div key={goal.id} className="card hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-4">
@@ -361,6 +441,22 @@ export default function Goals() {
                       <span className="font-medium text-gray-900">{formatDate(goal.deadline)}</span>
                     </div>
                   )}
+
+                  {activeAuto.length > 0 && (
+                    <div className="pt-2">
+                      <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-200/80 flex items-center justify-between text-xs text-emerald-800">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <RefreshCw className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Tự động:</span>
+                          <span className="font-bold text-emerald-950">{formatCurrency(activeAuto[0].amount)}</span>
+                          <span>/ {FREQUENCY_LABELS[activeAuto[0].frequency]}</span>
+                        </div>
+                        <span className="text-[11px] text-emerald-600 font-mono">
+                          {formatDate(activeAuto[0].nextRunDate)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {goal.status === 'IN_PROGRESS' && (
@@ -371,10 +467,18 @@ export default function Goals() {
                         setAddAmount('');
                         setAddWalletId('');
                       }}
-                      className="btn btn-primary flex-1 flex items-center justify-center gap-1"
+                      className="btn btn-primary flex-1 flex items-center justify-center gap-1 text-xs py-2"
                     >
                       <Wallet className="w-4 h-4" />
-                      Thêm tiền
+                      Nạp tiền
+                    </button>
+                    <button
+                      onClick={() => openAutoRecurringModal(goal)}
+                      className="btn btn-secondary flex items-center justify-center gap-1 text-xs py-2 px-2.5 text-primary hover:bg-primary/10"
+                      title="Thiết lập tự động nạp định kỳ vào mục tiêu này"
+                    >
+                      <Clock className="w-4 h-4 text-primary" />
+                      Tự động nạp
                     </button>
                     <button
                       onClick={() => openEdit(goal)}
@@ -559,6 +663,101 @@ export default function Goals() {
               Cập nhật
             </button>
             <button type="button" onClick={() => { setShowAddAmount(null); setAddWalletId(''); }} className="btn btn-secondary flex-1">
+              Hủy
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Auto Recurring modal */}
+      <Modal
+        open={!!showAutoRecurring}
+        onClose={() => setShowAutoRecurring(null)}
+        title={`Tự động tích lũy định kỳ — ${showAutoRecurring?.name || ''}`}
+      >
+        <form onSubmit={handleCreateAutoRecurring} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Số tiền mỗi kỳ (VNĐ) *
+            </label>
+            <input
+              type="number"
+              value={autoAmount}
+              onChange={(e) => setAutoAmount(e.target.value)}
+              className="input"
+              placeholder="VD: 5000000"
+              min="1"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Trích tiền từ ví *
+            </label>
+            <select
+              value={autoWalletId}
+              onChange={(e) => setAutoWalletId(e.target.value)}
+              className="input"
+              required
+            >
+              <option value="">-- Chọn ví nguồn --</option>
+              {wallets.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name} ({formatCurrency(w.balance)})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Chu kỳ tích lũy *
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['DAILY', 'WEEKLY', 'MONTHLY'] as RecurringFrequency[]).map((freq) => (
+                <button
+                  key={freq}
+                  type="button"
+                  onClick={() => setAutoFrequency(freq)}
+                  className={`py-2 text-xs font-medium rounded-lg border transition-all ${
+                    autoFrequency === freq
+                      ? 'border-primary bg-primary/10 text-primary font-bold'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  {FREQUENCY_LABELS[freq]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ngày bắt đầu tự động *
+            </label>
+            <input
+              type="date"
+              value={autoStartDate}
+              onChange={(e) => setAutoStartDate(e.target.value)}
+              className="input"
+              required
+            />
+          </div>
+          <p className="text-xs text-gray-500">
+            Hệ thống sẽ tự động trừ số tiền này từ ví đã chọn và cộng trực tiếp vào mục tiêu khi đến hạn.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={savingAuto}
+              className="btn btn-primary flex-1 py-2.5 flex items-center justify-center gap-1.5"
+            >
+              <RefreshCw className={`w-4 h-4 ${savingAuto ? 'animate-spin' : ''}`} />
+              {savingAuto ? 'Đang kích hoạt...' : 'Kích hoạt tự động'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAutoRecurring(null)}
+              className="btn btn-secondary flex-1 py-2.5"
+            >
               Hủy
             </button>
           </div>

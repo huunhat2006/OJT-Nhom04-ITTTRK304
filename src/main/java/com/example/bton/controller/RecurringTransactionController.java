@@ -91,6 +91,38 @@ public class RecurringTransactionController {
                 recurringTransactionService.resumeRecurringTransaction(id, currentUser.getId()));
     }
 
+    @PatchMapping("/{id}/toggle")
+    @Operation(summary = "Toggle active/paused status of a recurring transaction")
+    public ResponseEntity<RecurringTransactionResponse> toggleRecurringTransaction(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        RecurringTransactionResponse curr = recurringTransactionService.getRecurringTransaction(id, currentUser.getId());
+        if (curr.getStatus() == com.example.bton.enums.RecurringStatus.ACTIVE) {
+            return ResponseEntity.ok(recurringTransactionService.pauseRecurringTransaction(id, currentUser.getId()));
+        } else {
+            return ResponseEntity.ok(recurringTransactionService.resumeRecurringTransaction(id, currentUser.getId()));
+        }
+    }
+
+    @PostMapping("/{id}/execute")
+    @Operation(summary = "Execute a recurring transaction immediately")
+    public ResponseEntity<RecurringTransactionResponse> executeRecurringTransactionNow(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        recurringTransactionService.executeNow(id, currentUser.getId());
+        return ResponseEntity.ok(recurringTransactionService.getRecurringTransaction(id, currentUser.getId()));
+    }
+
+    @GetMapping("/{id}/logs")
+    @Operation(summary = "Get execution logs of a recurring transaction (alias)")
+    public ResponseEntity<List<RecurringTransactionRunResponse>> getLogs(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        PageResponse<RecurringTransactionRunResponse> history =
+                recurringTransactionService.getHistory(id, currentUser.getId(), 0, 50);
+        return ResponseEntity.ok(history.getContent());
+    }
+
     @GetMapping("/{id}/history")
     @Operation(summary = "Get execution history of a recurring transaction")
     public ResponseEntity<PageResponse<RecurringTransactionRunResponse>> getHistory(
