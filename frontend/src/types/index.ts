@@ -314,6 +314,8 @@ export interface RecurringTransaction {
   walletId?: number;
   walletName?: string;
   category?: Category | null;
+  savingsGoalId?: number | null;
+  savingsGoalName?: string | null;
   type: 'INCOME' | 'EXPENSE';
   amount: number;
   description: string;
@@ -330,9 +332,12 @@ export interface RecurringTransaction {
 export interface RecurringTransactionLog {
   id: number;
   recurringTransactionId: number;
+  scheduledDate?: string;
   executedAt: string;
-  amount: number;
+  executedAtLocal?: string;
+  amount?: number;
   status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
   transactionId?: number;
+  errorMessage?: string | null;
   note?: string;
 }

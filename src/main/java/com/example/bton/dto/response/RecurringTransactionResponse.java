@@ -22,6 +22,8 @@ public class RecurringTransactionResponse {
     private Long walletId;
     private String walletName;
     private CategoryResponse category;
+    private Long savingsGoalId;
+    private String savingsGoalName;
     private TransactionType type;
     private BigDecimal amount;
     private String description;

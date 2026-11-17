@@ -20,6 +20,8 @@ public class RecurringTransactionRequest {
 
     private Long categoryId;
 
+    private Long savingsGoalId;
+
     private TransactionType type;
 
     @DecimalMin(value = "0.01", message = "Amount must be greater than 0")

@@ -20,7 +20,7 @@ export default function FamilyQrScannerModal({
   joining,
   initialCode = '',
 }: FamilyQrScannerModalProps) {
-  const [tab, setTab] = useState<'qr' | 'manual'>('qr');
+  const [tab, setTab] = useState<'qr' | 'manual'>('manual');
   const [scanMethod, setScanMethod] = useState<'camera' | 'file'>('camera');
   const [manualCode, setManualCode] = useState(initialCode);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -194,18 +194,6 @@ export default function FamilyQrScannerModal({
         <div className="flex border-b border-gray-200">
           <button
             type="button"
-            onClick={() => setTab('qr')}
-            className={`flex-1 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
-              tab === 'qr'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <QrCode className="w-4 h-4" />
-            Quét mã QR
-          </button>
-          <button
-            type="button"
             onClick={() => setTab('manual')}
             className={`flex-1 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
               tab === 'manual'
@@ -215,6 +203,18 @@ export default function FamilyQrScannerModal({
           >
             <LogIn className="w-4 h-4" />
             Nhập mã mời
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('qr')}
+            className={`flex-1 py-2.5 text-sm font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
+              tab === 'qr'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <QrCode className="w-4 h-4" />
+            Quét mã QR
           </button>
         </div>
 

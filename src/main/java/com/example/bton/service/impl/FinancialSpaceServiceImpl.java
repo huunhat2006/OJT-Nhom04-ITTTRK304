@@ -91,9 +91,15 @@ public class FinancialSpaceServiceImpl {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        // Kiểm tra đã là thành viên chưa
-        boolean alreadyMember = memberRepository.findBySpaceIdAndUserId(space.getId(), userId).isPresent();
-        if (!alreadyMember && !space.getOwner().getId().equals(userId)) {
+        // Kiểm tra đã là thành viên chưa (nếu từng rời nhóm thì kích hoạt lại)
+        java.util.Optional<FamilyMember> existingMember = memberRepository.findBySpaceIdAndUserId(space.getId(), userId);
+        if (existingMember.isPresent()) {
+            FamilyMember m = existingMember.get();
+            if (!Boolean.TRUE.equals(m.getIsActive())) {
+                m.setIsActive(true);
+                memberRepository.save(m);
+            }
+        } else if (!space.getOwner().getId().equals(userId)) {
             FamilyMember newMember = FamilyMember.builder()
                     .space(space)
                     .user(user)

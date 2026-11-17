@@ -3,6 +3,8 @@ package com.example.bton.service.impl;
 import com.example.bton.service.RecurringTransactionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +17,9 @@ public class RecurringTransactionScheduler {
 
     private final RecurringTransactionService recurringTransactionService;
 
-    @Scheduled(cron = "0 0 0 * * *")
+    // Chạy khi ứng dụng khởi động và định kỳ mỗi 15 phút để tự động thực hiện các giao dịch đến hạn
+    @EventListener(ApplicationReadyEvent.class)
+    @Scheduled(cron = "0 0/15 * * * *")
     public void executeDueRecurringTransactions() {
         List<Long> dueIds = recurringTransactionService.findDueRecurringIds();
         if (dueIds.isEmpty()) {

@@ -16,9 +16,27 @@ import java.util.Optional;
 @Repository
 public interface RecurringTransactionRepository extends JpaRepository<RecurringTransaction, Long> {
 
-    List<RecurringTransaction> findByUserIdOrderByCreatedAtDesc(Long userId);
+    @Query("""
+            SELECT r FROM RecurringTransaction r
+            LEFT JOIN FETCH r.category
+            LEFT JOIN FETCH r.wallet
+            LEFT JOIN FETCH r.savingsGoal
+            WHERE r.user.id = :userId
+            ORDER BY r.createdAt DESC
+            """)
+    List<RecurringTransaction> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId);
 
-    List<RecurringTransaction> findBySpaceIdOrderByCreatedAtDesc(Long spaceId);
+    @Query("""
+            SELECT r FROM RecurringTransaction r
+            LEFT JOIN FETCH r.category
+            LEFT JOIN FETCH r.wallet
+            LEFT JOIN FETCH r.savingsGoal
+            WHERE r.space.id = :spaceId
+            ORDER BY r.createdAt DESC
+            """)
+    List<RecurringTransaction> findBySpaceIdOrderByCreatedAtDesc(@Param("spaceId") Long spaceId);
+
+    List<RecurringTransaction> findBySavingsGoalIdAndIsActiveTrue(Long savingsGoalId);
 
     @Query("""
             SELECT r FROM RecurringTransaction r
@@ -48,6 +66,7 @@ public interface RecurringTransactionRepository extends JpaRepository<RecurringT
             LEFT JOIN FETCH r.wallet
             LEFT JOIN FETCH r.category
             LEFT JOIN FETCH r.templateTransaction
+            LEFT JOIN FETCH r.savingsGoal
             WHERE r.id = :id
             """)
     Optional<RecurringTransaction> findDetailedById(@Param("id") Long id);
@@ -58,6 +77,7 @@ public interface RecurringTransactionRepository extends JpaRepository<RecurringT
             JOIN FETCH r.space
             LEFT JOIN FETCH r.wallet
             LEFT JOIN FETCH r.category
+            LEFT JOIN FETCH r.savingsGoal
             WHERE r.status = :status
             AND r.nextRunDate IS NOT NULL
             AND r.nextRunDate <= :maxDate

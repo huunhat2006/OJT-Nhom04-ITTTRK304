@@ -17,6 +17,7 @@ import {
   XCircle,
   TrendingUp,
   TrendingDown,
+  Target,
 } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
 import api from '../../lib/axios';
@@ -26,6 +27,7 @@ import {
   RecurringFrequency,
   Category,
   Wallet,
+  SavingsGoal,
 } from '../../types';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import Modal from '../../components/Modal';
@@ -71,6 +73,7 @@ const emptyForm = {
   type: 'EXPENSE' as 'INCOME' | 'EXPENSE',
   categoryId: '',
   walletId: '',
+  savingsGoalId: '',
   amount: '',
   description: '',
   frequency: 'MONTHLY' as RecurringFrequency,
@@ -140,6 +143,8 @@ export default function RecurringTransactions() {
   const [editing, setEditing] = useState<RecurringTransaction | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [goals, setGoals] = useState<SavingsGoal[]>([]);
+  const [executingId, setExecutingId] = useState<number | null>(null);
 
   // ── Tab state ──
   const [activeTab, setActiveTab] = useState<Tab>('list');
@@ -189,13 +194,24 @@ export default function RecurringTransactions() {
     }
   }, [currentSpace]);
 
+  const fetchGoals = useCallback(async () => {
+    if (!currentSpace) return;
+    try {
+      const { data } = await api.get<SavingsGoal[]>(`/savings-goals?spaceId=${currentSpace.id}`);
+      setGoals(data.filter((g) => g.status !== 'CANCELLED'));
+    } catch {
+      // ignore
+    }
+  }, [currentSpace]);
+
   useEffect(() => {
     if (currentSpace) {
       fetchItems();
       fetchCategories();
       fetchWallets();
+      fetchGoals();
     }
-  }, [currentSpace, fetchItems, fetchCategories, fetchWallets]);
+  }, [currentSpace, fetchItems, fetchCategories, fetchWallets, fetchGoals]);
 
   // ─────────────────
   // CRUD
@@ -212,6 +228,7 @@ export default function RecurringTransactions() {
       type: item.type,
       categoryId: item.category?.id?.toString() || '',
       walletId: item.walletId?.toString() || '',
+      savingsGoalId: item.savingsGoalId ? String(item.savingsGoalId) : '',
       amount: String(item.amount),
       description: item.description,
       frequency: item.frequency,
@@ -238,6 +255,7 @@ export default function RecurringTransactions() {
         spaceId: currentSpace.id,
         walletId: form.walletId ? Number(form.walletId) : null,
         categoryId: Number(form.categoryId),
+        savingsGoalId: form.savingsGoalId ? Number(form.savingsGoalId) : null,
         type: form.type,
         amount: Number(form.amount),
         description: form.description,
@@ -259,6 +277,22 @@ export default function RecurringTransactions() {
       toast.error(error.response?.data?.message || 'Không thể lưu giao dịch định kỳ');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleExecuteNow = async (item: RecurringTransaction) => {
+    if (executingId) return;
+    setExecutingId(item.id);
+    try {
+      await api.post(`/recurring-transactions/${item.id}/execute`);
+      toast.success(`Đã thực hiện giao dịch "${item.description || 'Định kỳ'}" thành công!`);
+      fetchItems();
+      fetchWallets();
+      fetchGoals();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Không thể thực hiện giao dịch');
+    } finally {
+      setExecutingId(null);
     }
   };
 
@@ -418,6 +452,7 @@ export default function RecurringTransactions() {
                 key={item.id}
                 item={item}
                 onToggle={handleToggle}
+                onExecute={handleExecuteNow}
                 onEdit={openEdit}
                 onDelete={handleDelete}
                 onHistory={openHistory}
@@ -611,6 +646,61 @@ export default function RecurringTransactions() {
         maxWidth="max-w-xl"
       >
         <form onSubmit={handleSave} className="space-y-5">
+          {/* Liên kết Mục tiêu tích lũy */}
+          {goals.length > 0 && (
+            <div className="p-3.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-emerald-900 flex items-center gap-1.5">
+                  <Target className="w-4 h-4 text-emerald-600" />
+                  Tích lũy vào Mục tiêu (Tùy chọn)
+                </label>
+                {form.savingsGoalId && (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, savingsGoalId: '' })}
+                    className="text-xs text-gray-500 hover:text-danger underline"
+                  >
+                    Hủy liên kết
+                  </button>
+                )}
+              </div>
+              <select
+                value={form.savingsGoalId}
+                onChange={(e) => {
+                  const goalId = e.target.value;
+                  if (!goalId) {
+                    setForm({ ...form, savingsGoalId: '' });
+                    return;
+                  }
+                  const selectedGoal = goals.find((g) => g.id === Number(goalId));
+                  const savingsCat = categories.find(
+                    (c) => c.name === 'Savings' || c.nameVi === 'Tiết kiệm'
+                  );
+                  setForm({
+                    ...form,
+                    savingsGoalId: goalId,
+                    type: 'EXPENSE',
+                    categoryId: savingsCat ? String(savingsCat.id) : form.categoryId,
+                    description: selectedGoal ? `Tích lũy: ${selectedGoal.name}` : form.description,
+                  });
+                }}
+                className="input bg-white text-sm"
+              >
+                <option value="">-- Không liên kết mục tiêu --</option>
+                {goals.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    🎯 {g.name} (Hiện có: {formatCurrency(g.currentAmount)} / {formatCurrency(g.targetAmount)})
+                  </option>
+                ))}
+              </select>
+              {form.savingsGoalId && (
+                <p className="text-[11px] text-emerald-700">
+                  ✨ Mỗi khi giao dịch định kỳ này chạy, số tiền sẽ được tự động trừ từ ví đã chọn và cộng trực tiếp vào tiến độ mục tiêu tiết kiệm.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Loại giao dịch */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Loại giao dịch</label>
@@ -849,6 +939,7 @@ function SummaryCards({ items }: { items: RecurringTransaction[] }) {
 function RecurringCard({
   item,
   onToggle,
+  onExecute,
   onEdit,
   onDelete,
   onHistory,
@@ -856,6 +947,7 @@ function RecurringCard({
 }: {
   item: RecurringTransaction;
   onToggle: (item: RecurringTransaction) => void;
+  onExecute?: (item: RecurringTransaction) => void;
   onEdit: (item: RecurringTransaction) => void;
   onDelete: (id: number) => void;
   onHistory: (item: RecurringTransaction) => void;
@@ -883,6 +975,12 @@ function RecurringCard({
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${FREQUENCY_BADGE_COLOR[item.frequency]}`}>
               {FREQUENCY_LABELS[item.frequency]}
             </span>
+            {item.savingsGoalName && (
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                <Target className="w-3 h-3 text-emerald-600" />
+                Tích lũy: {item.savingsGoalName}
+              </span>
+            )}
             {item.status === 'PAUSED' && (
               <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
                 Tạm dừng
@@ -944,6 +1042,18 @@ function RecurringCard({
           </span>
 
           <div className="flex items-center gap-1">
+            {/* Execute now */}
+            {onExecute && isActive && (
+              <button
+                onClick={() => onExecute(item)}
+                title="Thực hiện giao dịch này ngay bây giờ"
+                className="px-2 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary flex items-center gap-1 text-xs font-semibold transition-colors"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span className="hidden sm:inline">Chạy ngay</span>
+              </button>
+            )}
+
             {/* Toggle switch */}
             {canToggle && (
               <button
@@ -1028,11 +1138,17 @@ function HistoryLogItem({
               {log.note && <span className="text-xs text-gray-400">{log.note}</span>}
             </div>
             <p className="text-sm text-gray-500 mt-0.5">
-              {new Date(log.executedAt).toLocaleString('vi-VN')}
+              {log.executedAtLocal || (log.executedAt ? new Date(log.executedAt).toLocaleString('vi-VN') : '—')}
+              {log.scheduledDate && ` · Kỳ ngày: ${formatDate(log.scheduledDate)}`}
             </p>
+            {log.errorMessage && (
+              <p className="text-xs text-danger mt-1 bg-danger/5 p-1 rounded font-mono">
+                {log.errorMessage}
+              </p>
+            )}
           </div>
           <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-            {formatCurrency(log.amount)}
+            {log.amount != null ? formatCurrency(log.amount) : ''}
           </span>
         </div>
       </div>

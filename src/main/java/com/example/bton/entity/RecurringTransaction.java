@@ -48,6 +48,10 @@ public class RecurringTransaction {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "savings_goal_id")
+    private SavingsGoal savingsGoal;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private TransactionType type;
