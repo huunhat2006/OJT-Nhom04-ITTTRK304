@@ -1,7 +1,7 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Wallet, Eye, EyeOff } from 'lucide-react';
+import { Wallet, Eye, EyeOff, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../lib/axios';
 import { useAuthStore } from '../../store/authStore';
@@ -13,9 +13,22 @@ export default function Login() {
   const login = useAuthStore((state) => state.login);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const codeFromUrl = params.get('joinCode');
+    if (codeFromUrl) {
+      const code = codeFromUrl.trim().toUpperCase();
+      localStorage.setItem('pendingFamilyJoinCode', code);
+      setPendingJoinCode(code);
+    } else {
+      const codeFromStorage = localStorage.getItem('pendingFamilyJoinCode');
+      if (codeFromStorage) {
+        setPendingJoinCode(codeFromStorage);
+      }
+    }
+
     const error = params.get('error');
     if (error) {
       if (error === 'oauth2_failure' || error === 'oauth2_failed') {
@@ -82,10 +95,17 @@ export default function Login() {
         createdAt: meRes.data.createdAt ?? '',
       }, response.data.accessToken, response.data.refreshToken);
       toast.success('Đăng nhập thành công!');
-      const from = (location.state as any)?.from
-        ? `${(location.state as any).from.pathname}${(location.state as any).from.search || ''}`
-        : (response.data.role === 'ADMIN' ? '/admin' : '/');
-      navigate(from, { replace: true });
+
+      const pendingCode = localStorage.getItem('pendingFamilyJoinCode');
+      if (pendingCode) {
+        localStorage.removeItem('pendingFamilyJoinCode');
+        navigate(`/family?joinCode=${encodeURIComponent(pendingCode)}&autoJoin=true`, { replace: true });
+      } else {
+        const from = (location.state as any)?.from
+          ? `${(location.state as any).from.pathname}${(location.state as any).from.search || ''}`
+          : (response.data.role === 'ADMIN' ? '/admin' : '/');
+        navigate(from, { replace: true });
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Đăng nhập thất bại');
     } finally {
@@ -115,9 +135,24 @@ export default function Login() {
         </div>
 
         <h1 className="text-2xl font-bold text-center mb-2">Welcome back</h1>
-        <p className="text-gray-600 text-center mb-8">
+        <p className="text-gray-600 text-center mb-6">
           Sign in to continue to your account
         </p>
+
+        {pendingJoinCode && (
+          <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex items-start gap-3">
+            <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600 shrink-0 mt-0.5">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-indigo-900">Lời mời tham gia gia đình</h4>
+              <p className="text-xs text-indigo-700 mt-1">
+                Bạn đang được mời tham gia nhóm với mã <strong className="font-mono text-indigo-950 font-bold">{pendingJoinCode}</strong>.
+                Đăng nhập ngay để hệ thống tự động đưa bạn vào nhóm!
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

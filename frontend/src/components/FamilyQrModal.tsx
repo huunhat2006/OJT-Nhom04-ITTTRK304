@@ -17,9 +17,14 @@ export default function FamilyQrModal({ open, onClose, space }: FamilyQrModalPro
   const [copiedLink, setCopiedLink] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
 
+  const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const [customOrigin, setCustomOrigin] = useState(() => localStorage.getItem('qr_custom_origin') || (typeof window !== 'undefined' ? window.location.origin : ''));
+  const [showConfigOrigin, setShowConfigOrigin] = useState(false);
+
   if (!space || !space.inviteCode) return null;
 
-  const inviteLink = `${window.location.origin}/family?joinCode=${encodeURIComponent(space.inviteCode)}`;
+  const baseOrigin = customOrigin.trim() || window.location.origin;
+  const inviteLink = `${baseOrigin}/family?joinCode=${encodeURIComponent(space.inviteCode)}`;
 
   const handleCopyCode = async () => {
     try {
@@ -136,6 +141,48 @@ export default function FamilyQrModal({ open, onClose, space }: FamilyQrModalPro
             Quét mã để tham gia không gian tài chính gia đình
           </p>
         </div>
+
+        {isLocalhost && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-left text-xs text-amber-800 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-amber-900">📱 Mẹo quét bằng điện thoại (Mạng Wi-Fi)</span>
+              <button
+                type="button"
+                onClick={() => setShowConfigOrigin(!showConfigOrigin)}
+                className="text-primary hover:underline font-medium text-[11px]"
+              >
+                {showConfigOrigin ? 'Đóng' : 'Đổi địa chỉ IP máy tính'}
+              </button>
+            </div>
+            <p className="text-[11px] text-amber-700 leading-relaxed">
+              Bạn đang mở web bằng <code className="font-mono bg-amber-100 px-1 rounded">localhost</code>. Điện thoại quét vào sẽ không mở được vì khác máy. Để điện thoại mở được web, hãy mở web trên máy tính bằng IP Wi-Fi (VD: <code className="font-mono bg-amber-100 px-1 rounded">http://192.168.x.x:3000</code>) hoặc bấm <strong>"Đổi địa chỉ IP máy tính"</strong>.
+            </p>
+            {showConfigOrigin && (
+              <div className="pt-2 flex gap-1.5">
+                <input
+                  type="text"
+                  value={customOrigin}
+                  onChange={(e) => {
+                    setCustomOrigin(e.target.value);
+                    localStorage.setItem('qr_custom_origin', e.target.value);
+                  }}
+                  placeholder="VD: http://192.168.1.15:3000"
+                  className="input text-xs py-1.5 px-2 flex-1 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomOrigin(window.location.origin);
+                    localStorage.removeItem('qr_custom_origin');
+                  }}
+                  className="btn btn-secondary text-xs py-1.5 px-2.5 shrink-0"
+                >
+                  Đặt lại
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* QR Code Container */}
         <div className="flex justify-center my-3">

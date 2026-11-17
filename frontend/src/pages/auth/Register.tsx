@@ -1,7 +1,7 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Wallet, Eye, EyeOff } from 'lucide-react';
+import { Wallet, Eye, EyeOff, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../lib/axios';
 
@@ -9,6 +9,14 @@ export default function Register() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    const code = localStorage.getItem('pendingFamilyJoinCode');
+    if (code) {
+      setPendingJoinCode(code);
+    }
+  }, []);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -104,9 +112,24 @@ export default function Register() {
         </div>
 
         <h1 className="text-2xl font-bold text-center mb-2">Create Account</h1>
-        <p className="text-gray-600 text-center mb-8">
+        <p className="text-gray-600 text-center mb-6">
           Sign up to get started
         </p>
+
+        {pendingJoinCode && (
+          <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex items-start gap-3">
+            <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600 shrink-0 mt-0.5">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-indigo-900">Lời mời tham gia gia đình</h4>
+              <p className="text-xs text-indigo-700 mt-1">
+                Bạn đang được mời tham gia nhóm với mã <strong className="font-mono text-indigo-950 font-bold">{pendingJoinCode}</strong>.
+                Đăng ký tài khoản để tự động tham gia nhóm ngay sau khi đăng nhập!
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

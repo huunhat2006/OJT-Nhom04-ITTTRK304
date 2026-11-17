@@ -41,6 +41,13 @@ function ProtectedLayout() {
   const { isAuthenticated } = useAuthStore();
   const location = useLocation();
 
+  // Bắt mã mời gia đình nếu người dùng quét QR từ điện thoại khi chưa đăng nhập
+  const searchParams = new URLSearchParams(location.search);
+  const joinCode = searchParams.get('joinCode');
+  if (joinCode) {
+    localStorage.setItem('pendingFamilyJoinCode', joinCode.trim().toUpperCase());
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
@@ -49,6 +56,15 @@ function ProtectedLayout() {
 
 function App() {
   const { isAuthenticated, user } = useAuthStore();
+
+  // Global listener: Bắt mã mời gia đình từ URL bất kể route nào
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('joinCode');
+    if (code) {
+      localStorage.setItem('pendingFamilyJoinCode', code.trim().toUpperCase());
+    }
+  }
 
   return (
     <>

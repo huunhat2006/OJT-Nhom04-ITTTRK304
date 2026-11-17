@@ -1,5 +1,5 @@
 // Tác giả: Nguyễn Hoàng Phúc (Frontend Lead & UI/UX)
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Home, Plus, Copy, UserPlus, LogOut, Trash2, Users, QrCode } from 'lucide-react';
 import { useSpaceStore } from '../../store/spaceStore';
@@ -40,13 +40,18 @@ export default function Family() {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [inviteForm, setInviteForm] = useState({ usernameOrEmail: '', role: 'MEMBER' });
   const [inviting, setInviting] = useState(false);
+  const hasAutoJoinedRef = useRef(false);
 
   useEffect(() => {
     fetchSpaces();
-    const code = searchParams.get('joinCode');
-    if (code) {
-      setJoinCode(code.trim().toUpperCase());
-      setShowJoin(true);
+    const code = searchParams.get('joinCode') || localStorage.getItem('pendingFamilyJoinCode');
+    if (code && !hasAutoJoinedRef.current) {
+      hasAutoJoinedRef.current = true;
+      localStorage.removeItem('pendingFamilyJoinCode');
+      const cleanCode = code.trim().toUpperCase();
+      setJoinCode(cleanCode);
+      // Tự động tham gia nhóm ngay khi truy cập liên kết từ QR hoặc sau đăng nhập
+      handleAutoJoin(cleanCode);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -93,25 +98,35 @@ export default function Family() {
     }
   };
 
+  const handleAutoJoin = async (code: string) => {
+    setJoining(true);
+    const toastId = toast.loading(`Đang tự động tham gia nhóm với mã: ${code}...`);
+    try {
+      const { data } = await api.post<FinancialSpace>(
+        `/spaces/join?inviteCode=${encodeURIComponent(code)}`
+      );
+      toast.success(`🎉 Chúc mừng! Bạn đã tham gia nhóm "${data.name}" thành công!`, { id: toastId });
+      setShowJoin(false);
+      setJoinCode('');
+      // Xóa query param trên URL để F5 không bị lặp lại
+      if (typeof window !== 'undefined' && window.history.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      await fetchSpaces();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Mã mời không hợp lệ hoặc nhóm không tồn tại', { id: toastId });
+      setShowJoin(true);
+    } finally {
+      setJoining(false);
+    }
+  };
+
   const handleJoinWithCode = async (code: string) => {
     if (!code || !code.trim()) {
       toast.error('Vui lòng nhập mã mời');
       return;
     }
-    setJoining(true);
-    try {
-      const { data } = await api.post<FinancialSpace>(
-        `/spaces/join?inviteCode=${encodeURIComponent(code.trim())}`
-      );
-      toast.success(`Đã tham gia nhóm "${data.name}" thành công!`);
-      setShowJoin(false);
-      setJoinCode('');
-      await fetchSpaces();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Mã mời không hợp lệ hoặc nhóm không tồn tại');
-    } finally {
-      setJoining(false);
-    }
+    await handleAutoJoin(code.trim().toUpperCase());
   };
 
   const openMembers = async (space: FinancialSpace) => {
