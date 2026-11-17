@@ -74,7 +74,11 @@ export default function OAuth2Callback() {
           refreshToken ?? undefined
         );
         toast.success('Đăng nhập Google thành công!');
-        if (userData.role === 'ADMIN') {
+        const pendingCode = localStorage.getItem('pendingFamilyJoinCode');
+        if (pendingCode) {
+          localStorage.removeItem('pendingFamilyJoinCode');
+          navigate(`/family?joinCode=${encodeURIComponent(pendingCode)}&autoJoin=true`, { replace: true });
+        } else if (userData.role === 'ADMIN') {
           navigate('/admin');
         } else {
           navigate('/');
