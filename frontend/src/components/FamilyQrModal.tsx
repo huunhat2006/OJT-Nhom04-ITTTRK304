@@ -44,19 +44,87 @@ export default function FamilyQrModal({ open, onClose, space }: FamilyQrModalPro
   };
 
   const handleDownloadQr = () => {
-    const canvas = qrRef.current?.querySelector('canvas');
-    if (!canvas) {
+    const qrCanvas = qrRef.current?.querySelector('canvas');
+    if (!qrCanvas) {
       toast.error('Không tìm thấy hình ảnh mã QR');
       return;
     }
-    const url = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `budgivee-family-${space.inviteCode}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    toast.success('Đã tải hình ảnh mã QR!');
+
+    try {
+      // Tạo một thẻ card hình ảnh chuẩn độ phân giải cao (520x650) có viền trắng rộng và thông tin rõ ràng
+      const cardCanvas = document.createElement('canvas');
+      const cardWidth = 520;
+      const cardHeight = 650;
+      cardCanvas.width = cardWidth;
+      cardCanvas.height = cardHeight;
+      const ctx = cardCanvas.getContext('2d');
+      if (!ctx) {
+        toast.error('Không thể tạo hình ảnh');
+        return;
+      }
+
+      // Nền trắng tinh khiết
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, cardWidth, cardHeight);
+
+      // Đường viền nhẹ thanh lịch quanh thẻ
+      ctx.strokeStyle = '#E5E7EB';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(12, 12, cardWidth - 24, cardHeight - 24);
+
+      // Tiêu đề ứng dụng
+      ctx.fillStyle = '#4F46E5';
+      ctx.font = 'bold 22px system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('BUDGIVEE · TÀI CHÍNH GIA ĐÌNH', cardWidth / 2, 54);
+
+      // Tên không gian gia đình
+      ctx.fillStyle = '#111827';
+      ctx.font = 'bold 18px system-ui, -apple-system, sans-serif';
+      ctx.fillText(space.name, cardWidth / 2, 88);
+
+      // Vẽ mã QR ở chính giữa với khoảng đệm trắng cực kỳ rộng (đảm bảo máy quét nào cũng đọc được)
+      const qrSize = 320;
+      const qrX = (cardWidth - qrSize) / 2;
+      const qrY = 115;
+      ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+
+      // Khung chứa mã mời dạng chữ
+      const boxY = 465;
+      const boxWidth = cardWidth - 80;
+      const boxX = 40;
+      ctx.fillStyle = '#F3F4F6';
+      ctx.fillRect(boxX, boxY, boxWidth, 80);
+      ctx.strokeStyle = '#E5E7EB';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(boxX, boxY, boxWidth, 80);
+
+      // Nhãn mã mời
+      ctx.fillStyle = '#6B7280';
+      ctx.font = '12px system-ui, -apple-system, sans-serif';
+      ctx.fillText('MÃ MỜI THAM GIA NHÓM:', cardWidth / 2, boxY + 28);
+
+      // Mã mời (In hoa, font mono)
+      ctx.fillStyle = '#4F46E5';
+      ctx.font = 'bold 26px monospace';
+      ctx.fillText(space.inviteCode || '', cardWidth / 2, boxY + 62);
+
+      // Dòng hướng dẫn ở chân thẻ
+      ctx.fillStyle = '#9CA3AF';
+      ctx.font = '13px system-ui, -apple-system, sans-serif';
+      ctx.fillText('Quét mã QR bằng ứng dụng hoặc nhập mã ở trên để tham gia', cardWidth / 2, 588);
+
+      const url = cardCanvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `budgivee-family-${space.inviteCode}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success('Đã tải hình ảnh mã QR chất lượng cao!');
+    } catch {
+      toast.error('Có lỗi khi tạo ảnh');
+    }
   };
 
   return (
@@ -77,9 +145,9 @@ export default function FamilyQrModal({ open, onClose, space }: FamilyQrModalPro
           >
             <QRCodeCanvas
               value={inviteLink}
-              size={210}
+              size={240}
               level="H"
-              includeMargin={false}
+              marginSize={4}
             />
           </div>
         </div>
