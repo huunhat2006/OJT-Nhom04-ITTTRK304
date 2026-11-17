@@ -26,8 +26,10 @@ export default function FamilyQrScannerModal({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isStartingCamera, setIsStartingCamera] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isScanningFile, setIsScanningFile] = useState(false);
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const fileScannerRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isStoppingRef = useRef(false);
 
@@ -36,6 +38,103 @@ export default function FamilyQrScannerModal({
       setManualCode(initialCode.toUpperCase());
     }
   }, [initialCode]);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      if (fileScannerRef.current) {
+        try {
+          fileScannerRef.current.clear();
+        } catch {
+          // ignore
+        }
+        fileScannerRef.current = null;
+      }
+    };
+  }, []);
+
+  // Helper: Tạo ảnh đệm viền trắng (quiet zone padding) giúp bộ giải mã ZXing nhận diện mã QR chắc chắn 100%
+  const createPaddedImageFile = async (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        try {
+          const padding = Math.max(60, Math.round(Math.min(img.width, img.height) * 0.15));
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width + padding * 2;
+          canvas.height = img.height + padding * 2;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(file);
+            return;
+          }
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, padding, padding);
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              resolve(file);
+              return;
+            }
+            resolve(new File([blob], 'padded_' + file.name, { type: 'image/png' }));
+          }, 'image/png');
+        } catch {
+          resolve(file);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+      };
+      img.src = objectUrl;
+    });
+  };
+
+  // Helper: Chuẩn hóa kích thước ảnh về tối đa 800px (phòng ngừa ảnh chụp camera 4K/48MP quá lớn)
+  const createResizedImageFile = async (file: File, maxDim = 800): Promise<File | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        try {
+          const maxCurrent = Math.max(img.width, img.height);
+          if (maxCurrent <= maxDim) {
+            resolve(null);
+            return;
+          }
+          const scale = maxDim / maxCurrent;
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const padding = 50;
+          const canvas = document.createElement('canvas');
+          canvas.width = w + padding * 2;
+          canvas.height = h + padding * 2;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, padding, padding, w, h);
+          canvas.toBlob((blob) => {
+            if (!blob) return resolve(null);
+            resolve(new File([blob], 'resized_' + file.name, { type: 'image/png' }));
+          }, 'image/png');
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(null);
+      };
+      img.src = objectUrl;
+    });
+  };
 
   // Extract invite code from decoded QR text (handles full URLs and raw codes)
   const extractJoinCode = (rawText: string): string => {
@@ -147,13 +246,14 @@ export default function FamilyQrScannerModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsScanningFile(true);
     try {
-      // Need a temporary or existing Html5Qrcode instance for file scanning
-      let fileScanner = scannerRef.current;
+      let fileScanner = fileScannerRef.current;
       if (!fileScanner) {
         const fileDiv = document.getElementById('family-qr-file-anchor');
         if (fileDiv) {
           fileScanner = new Html5Qrcode('family-qr-file-anchor');
+          fileScannerRef.current = fileScanner;
         }
       }
 
@@ -162,11 +262,38 @@ export default function FamilyQrScannerModal({
         return;
       }
 
-      const decodedText = await fileScanner.scanFile(file, false);
-      handleScanSuccess(decodedText);
-    } catch (err) {
-      toast.error('Không tìm thấy mã QR trong ảnh. Vui lòng chọn ảnh khác rõ nét hơn.');
+      let decodedText: string | null = null;
+
+      // Chiến lược 1: Thêm khoảng đệm viền trắng xung quanh (xử lý triệt để ảnh QR sát mép, ảnh gửi qua mạng xã hội)
+      try {
+        const paddedFile = await createPaddedImageFile(file);
+        decodedText = await fileScanner.scanFile(paddedFile, false);
+      } catch {
+        // Chiến lược 2: Quét trực tiếp file ảnh gốc
+        try {
+          decodedText = await fileScanner.scanFile(file, false);
+        } catch {
+          // Chiến lược 3: Thu nhỏ kích thước ảnh kèm viền trắng (xử lý ảnh chụp màn hình máy ảnh độ phân giải cao)
+          try {
+            const resizedFile = await createResizedImageFile(file, 800);
+            if (resizedFile) {
+              decodedText = await fileScanner.scanFile(resizedFile, false);
+            }
+          } catch {
+            // Không nhận dạng được qua cả 3 chiến lược
+          }
+        }
+      }
+
+      if (decodedText) {
+        handleScanSuccess(decodedText);
+      } else {
+        toast.error('Không tìm thấy mã QR trong ảnh. Vui lòng chọn ảnh khác rõ nét hơn hoặc nhập mã mời trực tiếp.');
+      }
+    } catch {
+      toast.error('Không thể đọc tệp ảnh mã QR.');
     } finally {
+      setIsScanningFile(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -190,6 +317,13 @@ export default function FamilyQrScannerModal({
   return (
     <Modal open={open} onClose={handleModalClose} title="Tham gia nhóm gia đình" maxWidth="max-w-md">
       <div className="space-y-4">
+        {/* Offscreen measurable container for file scanning - always present in DOM */}
+        <div
+          id="family-qr-file-anchor"
+          className="fixed -left-[9999px] -top-[9999px] w-[350px] h-[350px] pointer-events-none opacity-0 overflow-hidden"
+          aria-hidden="true"
+        />
+
         {/* Tab selection */}
         <div className="flex border-b border-gray-200">
           <button
@@ -248,9 +382,6 @@ export default function FamilyQrScannerModal({
               </button>
             </div>
 
-            {/* Hidden anchor for file scanning */}
-            <div id="family-qr-file-anchor" style={{ display: 'none' }} />
-
             {scanMethod === 'camera' ? (
               <div className="relative">
                 <div
@@ -304,21 +435,30 @@ export default function FamilyQrScannerModal({
                   ref={fileInputRef}
                   accept="image/*"
                   onChange={handleFileUpload}
+                  disabled={isScanningFile}
                   className="hidden"
                   id="qr-file-input"
                 />
                 <label
                   htmlFor="qr-file-input"
-                  className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 hover:border-primary rounded-xl cursor-pointer bg-gray-50 hover:bg-primary/5 transition-colors"
+                  className={`flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 hover:border-primary rounded-xl cursor-pointer bg-gray-50 hover:bg-primary/5 transition-colors ${
+                    isScanningFile ? 'opacity-60 pointer-events-none' : ''
+                  }`}
                 >
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                    <Upload className="w-6 h-6 text-primary" />
+                    {isScanningFile ? (
+                      <RefreshCw className="w-6 h-6 text-primary animate-spin" />
+                    ) : (
+                      <Upload className="w-6 h-6 text-primary" />
+                    )}
                   </div>
                   <span className="text-sm font-semibold text-gray-800">
-                    Bấm để chọn ảnh mã QR
+                    {isScanningFile ? 'Đang đọc và phân tích mã QR...' : 'Bấm để chọn ảnh mã QR'}
                   </span>
-                  <span className="text-xs text-gray-500 mt-1">
-                    Hỗ trợ ảnh chụp màn hình, ảnh chụp (.png, .jpg, .webp)
+                  <span className="text-xs text-gray-500 mt-1 text-center">
+                    {isScanningFile
+                      ? 'Đang áp dụng bộ lọc nhận diện thông minh...'
+                      : 'Hỗ trợ ảnh chụp màn hình, ảnh thẻ tải về, ảnh gửi qua Zalo/Mess'}
                   </span>
                 </label>
               </div>
